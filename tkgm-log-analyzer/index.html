@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Kaydı Sorgulama - TKGM Harita Servisleri</title>
+    <!-- Modern Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header glass-panel">
+            <div class="header-title">
+                <div class="logo-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+                <h1>TKGM Harita Servisleri <span>Log Analizörü</span></h1>
+            </div>
+            <div class="header-actions">
+                <label for="logDosyasiInput" class="btn btn-outline" style="cursor: pointer; margin-bottom: 0;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span id="logDosyaAdiGosterge">Log Dosyası Seçin (.csv)</span>
+                    <input type="file" id="logDosyasiInput" accept=".csv" hidden>
+                </label>
+                <button id="analizEtButonu" class="btn btn-primary" disabled>
+                    <i class="fa-solid fa-gears"></i> Analiz Et
+                </button>
+                <button id="sqlGosterButonu" class="btn btn-outline">
+                    <i class="fa-solid fa-database"></i> SQL Göster
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+
+            <!-- Alert Area -->
+            <div id="bildirimAlani" class="alert hidden">
+                <i id="bildirimIkonu" class="fa-solid"></i>
+                <span id="bildirimMesaji"></span>
+            </div>
+
+            <!-- Results Section -->
+            <section id="sonuclarAlani" class="results-section glass-panel">
+                <div class="results-header">
+                    <div class="stats">
+                        <span id="toplamSayac" class="stat-badge total">Toplam: 0</span>
+                        <span id="wmsSayac" class="stat-badge wms">WMS: 0</span>
+                        <span id="wfsSayac" class="stat-badge wfs">WFS: 0</span>
+                    </div>
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="aramaKutusu" placeholder="Tabloda filtrele...">
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="logTablosu" class="hidden">
+                        <thead>
+                            <tr>
+                                <th>Satır</th>
+                                <th>Log ID</th>
+                                <th>IP Adresi</th>
+                                <th>Servis</th>
+                                <th>İstek</th>
+                                <th>Hedef (Layer)</th>
+                                <th class="wide-col">Filtre (CQL/Sorgu)</th>
+                                <th id="siralamaButonu" class="sortable">Kayıt <i class="fa-solid fa-sort"></i></th>
+                                <th>Tarih/Durum</th>
+                                <th>Parsel Sorgu</th>
+                                <th>Detay</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabloGovdesi">
+                            <!-- JS ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="bosDurum" class="empty-state">
+                    <i class="fa-solid fa-inbox"></i>
+                    <p>Gösterilecek OGC kaydı bulunamadı veya filtreye uygun sonuç yok.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="detayModal" class="modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h3 id="modalBasligi">İstek Detayları</h3>
+                <button class="close-btn" id="detayKapatButonu">&times;</button>
+            </div>
+            <div class="modal-body" id="modalIcerik"></div>
+        </div>
+    </div>
+
+    <!-- SQL Modal -->
+    <div id="sqlModal" class="modal">
+        <div class="modal-content glass-panel sql-modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-database highlight"></i> Veritabanı Sorgusu (SQL)</h3>
+                <button class="close-btn" id="sqlKapatButonu">&times;</button>
+            </div>
+            <div class="modal-body relative">
+                <button id="sqlKopyalaButonu" class="btn btn-small btn-floating">
+                    <i class="fa-regular fa-copy"></i> Kopyala
+                </button>
+                <pre id="sqlKodu" class="code-block">select i.id, i.request_type ,i.service_type ,i.user_host_address ,i.username,i.log_date ,i.request ,i.response ,i.feature_count 
+from infos i where i.username = 'cvpm_parsel' and i.service_type = 'GETFEATURE' and (i.log_date between '2026-08-12 00:01' and '2026-08-12 23:59' ) and i.feature_count > '0' order by id desc limit 300</pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zemin SQL Modal -->
+    <div id="zeminSqlModal" class="modal">
+        <div class="modal-content glass-panel sql-modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-database highlight"></i> Zemin Sorgusu (SQL)</h3>
+                <button class="close-btn" id="zeminSqlKapatButonu">&times;</button>
+            </div>
+            <div class="modal-body relative">
+                <button id="zeminSqlKopyalaButonu" class="btn btn-small btn-floating">
+                    <i class="fa-regular fa-copy"></i> Kopyala
+                </button>
+                <pre id="zeminSqlKodu" class="code-block"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
