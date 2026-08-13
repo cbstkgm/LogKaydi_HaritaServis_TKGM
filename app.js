@@ -71,31 +71,54 @@ analizEtButonu.addEventListener('click', () => {
 function veriyiAnalizEt(veri) {
     cozumlenmisLoglar = [];
     let wmsSayisi = 0; let wfsSayisi = 0;
-    let urlKolonu = null, durumKolonu = null, xmlKolonu = null, zamanKolonu = null, logIdKolonu = null, ipKolonu = null;
+    let urlKolonu = null, durumKolonu = null, xmlKolonu = null, zamanKolonu = null, logIdKolonu = null, ipKolonu = null, reqBodyKolonu = null;
     
-    // Kolon tespiti (ilk 20 satır)
+    // Adım 1: Kolon tespiti (ilk 20 satır - İÇERİK bazlı kesin tespit)
     const kontrolEdilecekSatirSayisi = Math.min(veri.length, 20);
     for (let i = 0; i < kontrolEdilecekSatirSayisi; i++) {
         const anahtarlar = Object.keys(veri[i]);
         for (let anahtar of anahtarlar) {
             const deger = (veri[i][anahtar] || '').toString().trim();
             const kucukDeger = deger.toLowerCase();
-            const kucukAnahtar = anahtar.toLowerCase();
+            const kucukAnahtar = anahtar.toLowerCase().trim();
 
             if (!urlKolonu && (deger.startsWith('http') || (kucukDeger.includes('service=') && kucukDeger.includes('request=')))) urlKolonu = anahtar;
-            if (!xmlKolonu && (deger.startsWith('<?xml') || kucukDeger.includes('<wfs:') || kucukDeger.includes('exception'))) xmlKolonu = anahtar;
+            if (!xmlKolonu && (deger.startsWith('<?xml') || kucukDeger.includes('<wfs:') || kucukDeger.includes('exception') || deger.startsWith('{"') || deger.startsWith('[{'))) xmlKolonu = anahtar;
             if (!logIdKolonu && (kucukAnahtar === 'id' || kucukAnahtar.includes('log_id') || kucukAnahtar.includes('logid') || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(deger))) logIdKolonu = anahtar;
             if (!ipKolonu && (kucukAnahtar.includes('ip') || kucukAnahtar.includes('host') || kucukAnahtar.includes('address') || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(deger))) ipKolonu = anahtar;
-            if (!zamanKolonu && (kucukAnahtar.includes('date') || kucukAnahtar.includes('zaman') || /^\d{4}-\d{2}-\d{2}/.test(deger))) zamanKolonu = anahtar;
-            if (!durumKolonu && (kucukAnahtar.includes('status') || kucukAnahtar.includes('code'))) durumKolonu = anahtar;
+            if (!zamanKolonu && (kucukAnahtar.includes('date') || kucukAnahtar.includes('zaman') || kucukAnahtar.includes('tarih') || /^\d{4}-\d{2}-\d{2}/.test(deger))) zamanKolonu = anahtar;
+            if (!durumKolonu && (kucukAnahtar.includes('status') || kucukAnahtar.includes('code') || kucukAnahtar.includes('durum'))) durumKolonu = anahtar;
         }
-        if (urlKolonu) break;
+    }
+
+    // Adım 2: İçerik bazlı bulunamayanlar için İSİM bazlı tespit (Fallback)
+    const ilkSatirAnahtarlari = Object.keys(veri[0] || {});
+    
+    if (!urlKolonu) {
+        urlKolonu = ilkSatirAnahtarlari.find(k => {
+            const ad = k.toLowerCase().replace(/[\s_]/g, '');
+            return ad === 'request' || ad === 'url' || ad === 'istek' || ad === 'requesturl' || ad === 'orjinalurl';
+        }) || null;
+    }
+
+    if (!xmlKolonu) {
+        xmlKolonu = ilkSatirAnahtarlari.find(k => {
+            const ad = k.toLowerCase().replace(/[\s_]/g, '');
+            return ad === 'response' || ad === 'yanit' || ad === 'yanıt' || ad === 'xml' || ad === 'responsedata' || ad === 'responsebody';
+        }) || null;
+    }
+
+    if (!reqBodyKolonu) {
+        reqBodyKolonu = ilkSatirAnahtarlari.find(k => {
+            const ad = k.toLowerCase().replace(/[\s_]/g, '');
+            return ad === 'requestbody' || ad === 'payload' || ad === 'istekgovdesi' || ad === 'body';
+        }) || null;
     }
 
     if (!urlKolonu) {
         urlKolonu = Object.keys(veri[0] || {}).find(k => k.toLowerCase().includes('url') || k.toLowerCase().includes('request'));
         if(!urlKolonu) {
-            bildirimGoster("CSV dosyasında OGC sorgusu içeren bir sütun bulunamadı.", "warning");
+            bildirimGoster("CSV dosyasında OGC sorgusu (Request/URL) içeren bir sütun bulunamadı.", "warning");
             return;
         }
     }
@@ -111,6 +134,7 @@ function veriyiAnalizEt(veri) {
             logKaydi.logIdDegeri = logIdKolonu && satir[logIdKolonu] ? satir[logIdKolonu] : '-';
             logKaydi.ipAdresi = ipKolonu && satir[ipKolonu] ? satir[ipKolonu] : '-';
             logKaydi.xmlYaniti = xmlKolonu && satir[xmlKolonu] ? satir[xmlKolonu] : null;
+            logKaydi.reqBody = reqBodyKolonu && satir[reqBodyKolonu] ? satir[reqBodyKolonu] : null;
             logKaydi.hamSatir = satir;
             
             logKaydi.objeSayisi = '-';
@@ -171,7 +195,16 @@ function urlCozumle(urlString, satirNo) {
             if(sonuc.hedef !== '-') sonuc.hedef = decodeURIComponent(sonuc.hedef.replace(/\+/g, ' '));
 
             let cql = sonuc.parametreler['CQL_FILTER'] || sonuc.parametreler['FILTER'] || '-';
-            if (cql !== '-') sonuc.filtre = decodeURIComponent(cql.replace(/\+/g, ' '));
+            if (cql !== '-') {
+                sonuc.filtre = decodeURIComponent(cql.replace(/\+/g, ' '));
+            } else if (sonuc.servis === 'WMS' && sonuc.istekTipi === 'GetMap') {
+                let bbox = sonuc.parametreler['BBOX'];
+                let genislik = sonuc.parametreler['WIDTH'];
+                let yukseklik = sonuc.parametreler['HEIGHT'];
+                if (bbox) {
+                    sonuc.filtre = `BBOX: ${bbox.replace(/,/g, ', ')}` + (genislik && yukseklik ? ` (${genislik}x${yukseklik})` : '');
+                }
+            }
         }
     } catch (e) { console.warn(`URL parse hatası, Satır ${satirNo}`); }
     return sonuc;
@@ -271,6 +304,18 @@ function tabloyuCiz(cizilecekLoglar) {
                 : `<span class="count-badge zero">0</span>`;
         }
 
+        let onizleButonu = '-';
+        if (log.ogcMi && (log.servis === 'WMS' || log.servis === 'WFS')) {
+            let baseUrl = log.servis === 'WMS' ? 'https://cbsservis.tkgm.gov.tr/tkgm.ows/wms?' : 'https://cbsservis.tkgm.gov.tr/tkgm.ows/wfs?';
+            const qParams = new URLSearchParams(log.parametreler).toString();
+            if (qParams) {
+                onizleButonu = `<a href="${baseUrl}${qParams}" target="_blank" class="btn btn-small btn-outline" style="width: 100%; justify-content: center; font-size: 0.75rem;" title="Tarayıcıda Servis İsteği Yap"><i class="fa-solid fa-arrow-up-right-from-square"></i> Aç</a>`;
+            } else if (log.orjinalUrl.includes('?')) {
+                const hamQuery = log.orjinalUrl.substring(log.orjinalUrl.indexOf('?') + 1);
+                onizleButonu = `<a href="${baseUrl}${hamQuery}" target="_blank" class="btn btn-small btn-outline" style="width: 100%; justify-content: center; font-size: 0.75rem;" title="Tarayıcıda Servis İsteği Yap"><i class="fa-solid fa-arrow-up-right-from-square"></i> Aç</a>`;
+            }
+        }
+
         tr.innerHTML = `
             <td class="cell-muted">${log.id}</td>
             <td class="cell-code" title="${log.logIdDegeri}">${gosterilenLogId}</td>
@@ -281,6 +326,7 @@ function tabloyuCiz(cizilecekLoglar) {
             <td class="cell-filter" title="${log.filtre.replace(/"/g, '&quot;')}">${gosterilenFiltre}</td>
             <td style="text-align: center;">${sayacRozeti}</td>
             <td class="${durumSinifi}" style="font-family: monospace;">${log.zaman !== '-' ? log.zaman : log.durum}</td>
+            <td style="text-align: center;">${onizleButonu}</td>
             <td style="text-align: center;">${parselSorguButonu}</td>
             <td>
                 <button onclick="detayGoster(${log.id})" class="btn btn-small btn-success" style="font-weight: 600;">
@@ -373,6 +419,16 @@ window.detayGoster = function(id) {
         `;
     }
 
+    if (log.reqBody && log.reqBody.trim() !== '' && log.reqBody !== '-') {
+        const guvenliReq = log.reqBody.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        icerikHTML += `
+            <div class="detail-box">
+                <h4><i class="fa-solid fa-file-code"></i> İstek Gövdesi (Request Body/Payload)</h4>
+                <div class="content" style="max-height: 200px; overflow-y: auto;">${guvenliReq}</div>
+            </div>
+        `;
+    }
+
     icerikHTML += `<div class="detail-box"><h4>Sorgu Parametreleri</h4><div class="grid-params">`;
     for (let [anahtar, deger] of Object.entries(log.parametreler)) {
         let vurguSinifi = ['SERVICE', 'REQUEST', 'LAYERS', 'TYPENAME'].includes(anahtar.toUpperCase()) ? "highlight" : "";
@@ -384,7 +440,7 @@ window.detayGoster = function(id) {
         const guvenliXml = log.xmlYaniti.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         icerikHTML += `
             <div class="detail-box">
-                <h4>Sunucu Yanıtı (XML Response)</h4>
+                <h4>Sunucu Yanıtı (Response)</h4>
                 <div class="content" style="max-height: 200px; overflow-y: auto;">${guvenliXml}</div>
             </div>
         `;

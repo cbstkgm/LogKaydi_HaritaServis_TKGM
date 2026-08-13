@@ -408,7 +408,7 @@ tbody td {
 
 .cell-muted { color: var(--text-secondary); font-family: monospace; font-size: 0.85rem; font-weight: 600;}
 .cell-code { font-family: monospace; font-size: 0.85rem; color: #3b82f6; font-weight: 500;}
-.cell-filter { font-family: monospace; font-size: 0.85rem; color: #8b5cf6; line-height: 1.5; font-weight: 500;}
+.cell-filter { font-family: monospace; font-size: 0.85rem; color: #8b5cf6; line-height: 1.5; font-weight: 500; word-break: break-all; max-width: 400px; white-space: normal;}
 
 .badge-wms { background: #ecfdf5; color: #059669; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; border: 1px solid #a7f3d0;}
 .badge-wfs { background: #f5f3ff; color: #7c3aed; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; border: 1px solid #ddd6fe;}
