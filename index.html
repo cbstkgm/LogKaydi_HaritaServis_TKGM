@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,7 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Header -->
@@ -32,7 +34,8 @@
                 <button id="analizEtButonu" class="btn btn-primary" disabled>
                     <i class="fa-solid fa-gears"></i> Analiz Et
                 </button>
-                <button id="anomaliAcButonu" class="btn btn-warning" style="background: rgba(243, 156, 18, 0.2); border-color: #f39c12; color: #f39c12;">
+                <button id="anomaliAcButonu" class="btn btn-warning"
+                    style="background: rgba(243, 156, 18, 0.2); border-color: #f39c12; color: #f39c12;">
                     <i class="fa-solid fa-triangle-exclamation"></i> Anomali Tespit
                 </button>
                 <button id="sqlGosterButonu" class="btn btn-outline">
@@ -62,9 +65,11 @@
                     <div class="search-box-wrapper" style="display:flex; gap:10px; align-items:stretch;">
                         <div class="search-box">
                             <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" id="aramaKutusu" placeholder="Tabloda filtrele..." style="height: 100%; box-sizing: border-box;">
+                            <input type="text" id="aramaKutusu" placeholder="Tabloda filtrele..."
+                                style="height: 100%; box-sizing: border-box;">
                         </div>
-                        <button id="btnGelismisFiltreAcKapa" class="btn btn-outline" title="Gelişmiş Filtreler" style="padding: 0 16px; margin: 0; box-sizing: border-box;">
+                        <button id="btnGelismisFiltreAcKapa" class="btn btn-outline" title="Gelişmiş Filtreler"
+                            style="padding: 0 16px; margin: 0; box-sizing: border-box;">
                             <i class="fa-solid fa-filter"></i>
                         </button>
                     </div>
@@ -88,7 +93,8 @@
                             <!-- JS Tarafından doldurulacak -->
                         </div>
 
-                        <button id="btnFiltreyiEkle" class="btn btn-primary btn-small"><i class="fa-solid fa-plus"></i> Ekle</button>
+                        <button id="btnFiltreyiEkle" class="btn btn-primary btn-small"><i class="fa-solid fa-plus"></i>
+                            Ekle</button>
                     </div>
                 </div>
 
@@ -132,8 +138,10 @@
                         <span id="sayfalamaBilgisi">0 - 0 / 0</span>
                     </div>
                     <div class="page-buttons">
-                        <button id="btnOncekiSayfa" class="icon-btn" disabled title="Önceki Sayfa"><i class="fa-solid fa-chevron-left"></i></button>
-                        <button id="btnSonrakiSayfa" class="icon-btn" disabled title="Sonraki Sayfa"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button id="btnOncekiSayfa" class="icon-btn" disabled title="Önceki Sayfa"><i
+                                class="fa-solid fa-chevron-left"></i></button>
+                        <button id="btnSonrakiSayfa" class="icon-btn" disabled title="Sonraki Sayfa"><i
+                                class="fa-solid fa-chevron-right"></i></button>
                     </div>
                 </div>
 
@@ -145,8 +153,10 @@
 
             <!-- Scroll Butonları -->
             <div id="kaydirmaButonlari" class="scroll-buttons hidden">
-                <button id="btnScrollTop" class="btn btn-primary scroll-btn" title="En Üste Git"><i class="fa-solid fa-arrow-up"></i></button>
-                <button id="btnScrollBottom" class="btn btn-primary scroll-btn" title="En Alta Git"><i class="fa-solid fa-arrow-down"></i></button>
+                <button id="btnScrollTop" class="btn btn-primary scroll-btn" title="En Üste Git"><i
+                        class="fa-solid fa-arrow-up"></i></button>
+                <button id="btnScrollBottom" class="btn btn-primary scroll-btn" title="En Alta Git"><i
+                        class="fa-solid fa-arrow-down"></i></button>
             </div>
         </main>
     </div>
@@ -173,8 +183,22 @@
                 <button id="sqlKopyalaButonu" class="btn btn-small btn-floating">
                     <i class="fa-regular fa-copy"></i> Kopyala
                 </button>
-                <pre id="sqlKodu" class="code-block">select i.id, i.request_type ,i.service_type ,i.user_host_address ,i.username,i.log_date ,i.request ,i.response ,i.feature_count 
-from infos i where i.username = 'cvpm_parsel' and i.service_type = 'GETFEATURE' and (i.log_date between '2026-08-12 00:01' and '2026-08-12 23:59' ) and i.feature_count > '0' order by id desc limit 300</pre>
+                <pre id="sqlKodu" class="code-block">
+    SELECT 
+        id, 
+        request_type, 
+        service_type, 
+        user_host_address, 
+        username, 
+        log_date, 
+        request, 
+        --response,
+        LEFT(response, 5) AS response, 
+        feature_count
+    FROM infos
+    WHERE username = 'cvpm_parsel' 
+        AND service_type = 'GETFEATURE' 
+        AND (log_date >= '2026-08-14 00:00:00' AND log_date <= '2026-08-14 23:59:59') ;</pre>
             </div>
         </div>
     </div>
@@ -199,26 +223,34 @@ from infos i where i.username = 'cvpm_parsel' and i.service_type = 'GETFEATURE' 
     <div id="yukleniyorEkrani" class="loading-overlay hidden">
         <i class="fa-solid fa-circle-notch fa-spin fa-3x" style="color: var(--primary); margin-bottom: 15px;"></i>
         <h2 style="color: white; font-weight: 500;">İşlem Yapılıyor...</h2>
-        <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Lütfen bekleyiniz, büyük veriler işlenirken arayüz kısa süreliğine yanıt vermeyebilir.</p>
+        <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Lütfen bekleyiniz, büyük veriler işlenirken arayüz
+            kısa süreliğine yanıt vermeyebilir.</p>
     </div>
 
     <!-- Anomali Tespit Modalı -->
     <div id="anomaliModal" class="modal">
         <div class="modal-content glass-panel anomali-modal-content">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-triangle-exclamation" style="color: #f39c12;"></i> Anomali Tespit Sonuçları</h3>
+                <h3><i class="fa-solid fa-triangle-exclamation" style="color: #f39c12;"></i> Anomali Tespit Sonuçları
+                </h3>
                 <button class="close-btn" id="anomaliKapatButonu">&times;</button>
             </div>
             <div class="modal-body anomali-modal-body">
                 <div class="anomali-tabs">
-                    <button class="tab-btn active" data-tab="tab-guvenlik"><i class="fa-solid fa-shield-halved"></i> 1. Veri Güvenliği ve Suistimal</button>
-                    <button class="tab-btn" data-tab="tab-performans"><i class="fa-solid fa-server"></i> 2. Performans ve Altyapı</button>
-                    <button class="tab-btn" data-tab="tab-mantiksal"><i class="fa-solid fa-code"></i> 3. Mantıksal Hatalar</button>
-                    <button class="tab-btn" data-tab="tab-istatistik"><i class="fa-solid fa-chart-bar"></i> 4. İstatistik (Tekrarlanan)</button>
+                    <button class="tab-btn active" data-tab="tab-guvenlik"><i class="fa-solid fa-shield-halved"></i> 1.
+                        Veri Güvenliği ve Suistimal</button>
+                    <button class="tab-btn" data-tab="tab-performans"><i class="fa-solid fa-server"></i> 2. Performans
+                        ve Altyapı</button>
+                    <button class="tab-btn" data-tab="tab-mantiksal"><i class="fa-solid fa-code"></i> 3. Mantıksal
+                        Hatalar</button>
+                    <button class="tab-btn" data-tab="tab-istatistik"><i class="fa-solid fa-chart-bar"></i> 4.
+                        İstatistik (Tekrarlanan)</button>
                 </div>
                 <div class="tab-content active" id="tab-guvenlik">
                     <div class="anomali-liste" id="listeGuvenlik">
-                        <div class="empty-state"><p>Tespiti çalıştırmak için butona basınız.</p></div>
+                        <div class="empty-state">
+                            <p>Tespiti çalıştırmak için butona basınız.</p>
+                        </div>
                     </div>
                 </div>
                 <div class="tab-content" id="tab-performans">
@@ -237,4 +269,5 @@ from infos i where i.username = 'cvpm_parsel' and i.service_type = 'GETFEATURE' 
     <script src="data.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>
