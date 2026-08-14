@@ -39,6 +39,10 @@ let aktifFiltrelenmisLoglar = [];
 let mevcutSayfa = 1;
 let sayfaBasinaKayit = 100;
 
+// Gelişmiş Filtre Global Değişkenleri
+let aktifGelisimisFiltreler = [];
+let filtreSayaci = 0;
+
 // Seçiciler (Paginator)
 const sayfaBasinaKayitSecici = document.getElementById('sayfaBasinaKayitSecici');
 const btnOncekiSayfa = document.getElementById('btnOncekiSayfa');
@@ -304,7 +308,9 @@ function sayfalayiCiz() {
     
     logTablosu.classList.remove('hidden'); 
     bosDurum.classList.add('hidden');
-    document.getElementById('paginatorAlani').classList.remove('hidden');
+    const paginatorAlani = document.getElementById('paginatorAlani');
+    paginatorAlani.classList.remove('hidden');
+    paginatorAlani.classList.remove('paginator-pulse'); // Sayfa değişince animasyonu sıfırla
 
     // Sayfalama Kesimi (Slice)
     const baslangicIndex = (mevcutSayfa - 1) * sayfaBasinaKayit;
@@ -442,10 +448,36 @@ aramaKutusu.addEventListener('input', (e) => {
 
 function filtrele(arananKelimeler) {
     const terim = (arananKelimeler || '').toLowerCase();
+    
     const filtrelenmis = cozumlenmisLoglar.filter(log => {
+        // 1. Servis Filtresi
         if (aktifServisFiltresi !== 'HEPSİ' && log.servis !== aktifServisFiltresi) return false;
-        if (!terim) return true;
+        
+        // 2. Gelişmiş Filtreler (AND Logic)
+        for (let f of aktifGelisimisFiltreler) {
+            if (f.kolon === 'kayit') {
+                if (log.objeSayisi === 'Hata' || log.objeSayisi === '-') return false;
+                const val = parseInt(log.objeSayisi);
+                if (isNaN(val)) return false;
+                if (f.min !== null && val < f.min) return false;
+                if (f.max !== null && val > f.max) return false;
+            } else if (f.kolon === 'durum') {
+                const status = parseInt(log.durum);
+                if (isNaN(status)) return false;
+                if (f.min !== null && status < f.min) return false;
+                if (f.max !== null && status > f.max) return false;
+            } else if (f.kolon === 'tarih') {
+                const logTarihi = log.zaman; // Örn: 2026-08-13 02:06:21.049
+                if (logTarihi === '-') return false;
+                if (f.min && logTarihi < f.min) return false; // YYYY-MM-DD mantığında string kıyaslama genelde yeterlidir
+                if (f.max && logTarihi > f.max) return false;
+            } else if (f.kolon === 'ipadresi') {
+                if (!log.ipAdresi.toLowerCase().includes(f.text)) return false;
+            }
+        }
 
+        // 3. Genel Text Arama (OR Logic)
+        if (!terim) return true;
         const alanlar = [
             log.id, log.logIdDegeri, log.ipAdresi, log.servis, 
             log.istekTipi, log.hedef, log.filtre, log.objeSayisi, 
@@ -453,6 +485,7 @@ function filtrele(arananKelimeler) {
         ];
         return alanlar.some(alan => alan !== null && alan !== undefined && alan.toString().toLowerCase().includes(terim));
     });
+    
     tabloyuCiz(filtrelenmis);
 }
 
@@ -601,6 +634,22 @@ document.getElementById('btnScrollBottom').addEventListener('click', () => {
     tableWrapper.scrollTo({ top: tableWrapper.scrollHeight, behavior: 'smooth' });
 });
 
+tableWrapper.addEventListener('scroll', () => {
+    const maxSayfa = Math.ceil(aktifFiltrelenmisLoglar.length / sayfaBasinaKayit);
+    const paginatorAlani = document.getElementById('paginatorAlani');
+    
+    // Tablonun en altına gelinip gelinmediğini kontrol et (veya 10px yakını)
+    if (aktifFiltrelenmisLoglar.length > 0 && mevcutSayfa < maxSayfa) {
+        if (Math.ceil(tableWrapper.scrollTop + tableWrapper.clientHeight) >= tableWrapper.scrollHeight - 10) {
+            paginatorAlani.classList.add('paginator-pulse');
+        } else {
+            paginatorAlani.classList.remove('paginator-pulse');
+        }
+    } else {
+        paginatorAlani.classList.remove('paginator-pulse');
+    }
+});
+
 // Paginator Olay Dinleyicileri
 if(sayfaBasinaKayitSecici) {
     sayfaBasinaKayitSecici.addEventListener('change', (e) => {
@@ -678,4 +727,346 @@ function bildirimGoster(mesaj, tip = 'warning') {
 
 function bildirimGizle() { 
     bildirimAlani.classList.add('hidden'); 
+}
+// ---- GELİŞMİŞ FİLTRELEME OLAYLARI ----
+const btnGelismisFiltreAcKapa = document.getElementById('btnGelismisFiltreAcKapa');
+const gelismisFiltrePaneli = document.getElementById('gelismisFiltrePaneli');
+const filtreKolonSecici = document.getElementById('filtreKolonSecici');
+const filterInputContainer = document.getElementById('filterInputContainer');
+const btnFiltreyiEkle = document.getElementById('btnFiltreyiEkle');
+const aktifFiltrelerKutusu = document.getElementById('aktifFiltrelerKutusu');
+
+if(btnGelismisFiltreAcKapa) {
+    btnGelismisFiltreAcKapa.addEventListener('click', () => {
+        gelismisFiltrePaneli.classList.toggle('hidden');
+        if(!gelismisFiltrePaneli.classList.contains('hidden')) {
+            gelismisFiltreInputlariGuncelle();
+        }
+    });
+}
+
+if(filtreKolonSecici) {
+    filtreKolonSecici.addEventListener('change', gelismisFiltreInputlariGuncelle);
+}
+
+function gelismisFiltreInputlariGuncelle() {
+    const kolon = filtreKolonSecici.value;
+    filterInputContainer.innerHTML = '';
+    
+    if (kolon === 'kayit' || kolon === 'durum') {
+        filterInputContainer.innerHTML = `
+            <input type="number" id="gelismisMin" placeholder="Min Değer">
+            <span style="color:var(--text-muted)">-</span>
+            <input type="number" id="gelismisMax" placeholder="Max Değer">
+        `;
+    } else if (kolon === 'tarih') {
+        filterInputContainer.innerHTML = `
+            <input type="date" id="gelismisMin" title="Başlangıç Tarihi">
+            <span style="color:var(--text-muted)">-</span>
+            <input type="date" id="gelismisMax" title="Bitiş Tarihi">
+        `;
+    } else if (kolon === 'ipadresi') {
+        filterInputContainer.innerHTML = `
+            <input type="text" id="gelismisText" placeholder="Örn: 192.168.1.1">
+        `;
+    }
+}
+
+if(btnFiltreyiEkle) {
+    btnFiltreyiEkle.addEventListener('click', () => {
+        const kolon = filtreKolonSecici.value;
+        const kolonIsmi = filtreKolonSecici.options[filtreKolonSecici.selectedIndex].text;
+        let kural = { id: ++filtreSayaci, kolon: kolon, label: '' };
+
+        if (kolon === 'kayit' || kolon === 'durum' || kolon === 'tarih') {
+            const minInput = document.getElementById('gelismisMin').value;
+            const maxInput = document.getElementById('gelismisMax').value;
+            if (!minInput && !maxInput) return; // İkisi de boşsa ekleme
+            
+            kural.min = minInput ? (kolon === 'tarih' ? minInput : parseInt(minInput)) : null;
+            kural.max = maxInput ? (kolon === 'tarih' ? (maxInput + " 23:59:59") : parseInt(maxInput)) : null; // Tarihse max günün sonuna kadar
+            
+            if (minInput && maxInput) kural.label = `${kolonIsmi}: ${minInput} ile ${maxInput} arası`;
+            else if (minInput) kural.label = `${kolonIsmi}: ${minInput} ve üstü`;
+            else if (maxInput) kural.label = `${kolonIsmi}: ${maxInput} ve altı`;
+            
+            // Alanları temizle
+            document.getElementById('gelismisMin').value = '';
+            document.getElementById('gelismisMax').value = '';
+        } else {
+            const textInput = document.getElementById('gelismisText').value.trim();
+            if (!textInput) return;
+            kural.text = textInput.toLowerCase();
+            kural.label = `${kolonIsmi} '${textInput}' içeriyor`;
+            document.getElementById('gelismisText').value = '';
+        }
+
+        aktifGelisimisFiltreler.push(kural);
+        aktifFiltreRozetleriniCiz();
+        filtrele(aramaKutusu.value);
+    });
+}
+
+function aktifFiltreRozetleriniCiz() {
+    if (!aktifFiltrelerKutusu) return;
+    
+    // Rozetleri ve boş durumu temizle
+    const rozetler = aktifFiltrelerKutusu.querySelectorAll('.filter-badge');
+    rozetler.forEach(r => r.remove());
+
+    if (aktifGelisimisFiltreler.length === 0) {
+        aktifFiltrelerKutusu.classList.add('empty');
+    } else {
+        aktifFiltrelerKutusu.classList.remove('empty');
+        aktifGelisimisFiltreler.forEach(filtre => {
+            const badge = document.createElement('div');
+            badge.className = 'filter-badge';
+            badge.innerHTML = `
+                <span>${filtre.label}</span>
+                <button onclick="gelismisFiltreyiSil(${filtre.id})"><i class="fa-solid fa-xmark"></i></button>
+            `;
+            aktifFiltrelerKutusu.appendChild(badge);
+        });
+    }
+}
+
+window.gelismisFiltreyiSil = function(id) {
+    aktifGelisimisFiltreler = aktifGelisimisFiltreler.filter(f => f.id !== id);
+    aktifFiltreRozetleriniCiz();
+    filtrele(aramaKutusu.value);
+};
+
+// --- ANOMALİ TESPİT MODÜLÜ ---
+const anomaliAcButonu = document.getElementById('anomaliAcButonu');
+const anomaliModal = document.getElementById('anomaliModal');
+const anomaliKapatButonu = document.getElementById('anomaliKapatButonu');
+const anomaliTablari = document.querySelectorAll('.anomali-tabs .tab-btn');
+
+if(anomaliAcButonu) {
+    anomaliAcButonu.addEventListener('click', () => {
+        anomaliModal.style.display = 'block';
+        anomaliAnaliziYap();
+    });
+}
+
+if(anomaliKapatButonu) {
+    anomaliKapatButonu.addEventListener('click', () => {
+        anomaliModal.style.display = 'none';
+    });
+}
+
+// Sekme Geçişleri
+anomaliTablari.forEach(tab => {
+    tab.addEventListener('click', () => {
+        anomaliTablari.forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+});
+
+function anomaliAnaliziYap() {
+    if(!cozumlenmisLoglar || cozumlenmisLoglar.length === 0) {
+        document.querySelectorAll('.anomali-liste').forEach(el => el.innerHTML = '<div class="empty-state"><i class="fa-solid fa-database" style="font-size:2rem;margin-bottom:10px;opacity:0.5;"></i><br>Lütfen önce log dosyası analiz ediniz.</div>');
+        return;
+    }
+    
+    let guvenlikAnomalileri = [];
+    let performansAnomalileri = [];
+    let mantiksalAnomaliler = [];
+
+    let ipGruplari = {};
+    
+    const sqliRegex = /(?:union|select|insert|update|delete|drop|truncate)\s|--|%27/i;
+    const sldExceptionRegex = /(?:RenderException|Projection|EPSG|Axis Order Error|ExceptionReport)/i;
+
+    cozumlenmisLoglar.forEach(log => {
+        let durumInt = parseInt(log.durum);
+        let urlKey = Object.keys(log.hamSatir).find(k=>k.toLowerCase().includes('url') || k.toLowerCase().includes('request'));
+        let urlValue = urlKey ? (log.hamSatir[urlKey] || '') : '';
+        let xmlYaniti = log.xmlYaniti || '';
+        let reqBody = log.reqBody || '';
+
+        // 3. Mantıksal Hatalar
+        if(!isNaN(durumInt) && durumInt >= 400) {
+            mantiksalAnomaliler.push({
+                tur: "Durum Kodu Anomalisi / HTTP " + log.durum,
+                detay: "Hatalı İstek / Erişim",
+                log: log,
+                ispat: `Sunucu bu isteğe HTTP <b>${log.durum}</b> hata kodu ile yanıt vermiştir. (Örn: 404 ise sonsuz tile döngüsü/eksik kaynak, 5xx ise sunucu mantıksal hatası).`
+            });
+        }
+        
+        if(xmlYaniti && sldExceptionRegex.test(xmlYaniti)) {
+            mantiksalAnomaliler.push({
+                tur: "Geçersiz Geometri veya SLD Hatası",
+                detay: "RenderException / CRS Uyuşmazlığı",
+                log: log,
+                ispat: `Sunucu yanıtında OGC XML Error (Örn: RenderException veya Projection Error) tespit edilmiştir. İstemcinin desteklenmeyen SRS/EPSG kodu veya bozuk bir SLD XML'i gönderdiği ispatlanmıştır.`
+            });
+        }
+
+        // 1. Güvenlik ve Suistimal Hataları
+        // WFS-T Mesai Dışı
+        let saatMatch = (log.zaman && log.zaman !== '-') ? log.zaman.match(/\s(\d{2}):/) : null;
+        let saat = saatMatch && saatMatch[1] ? parseInt(saatMatch[1]) : null;
+        
+        if (saat !== null && (saat >= 18 || saat <= 8)) {
+            if(urlValue.toLowerCase().includes('transaction') || reqBody.toLowerCase().includes('transaction')) {
+                guvenlikAnomalileri.push({
+                    tur: "WFS-T Yetki Aşımı",
+                    detay: "Mesai Dışı Veri Modifikasyonu (Transaction)",
+                    log: log,
+                    ispat: `Mesai saatleri dışında (Saat: <b>${log.zaman}</b>) OGC WFS-T servisine veritabanı güncelleme/silme talebi gelmesi, izinsiz bir yetki aşımı (siber olay) göstergesidir.`
+                });
+            } else if (saat >= 3 && saat <= 5) {
+                guvenlikAnomalileri.push({
+                    tur: "Zaman Anomalisi (Bot/Scraping Olasılığı)",
+                    detay: "Gece Yarısı Şüpheli Yoğunluk",
+                    log: log,
+                    ispat: `Kayıtlı işlem zamanı <b>${log.zaman}</b>. Gece 03:00 - 05:00 arasındaki bu trafik, normal kullanıcılardan ziyade otomatize veri kazıma (scraping) faaliyetlerine işaret eder.`
+                });
+            }
+        }
+
+        // SQL Enjeksiyonu
+        if(urlValue.toLowerCase().includes('filter=') && sqliRegex.test(urlValue)) {
+            guvenlikAnomalileri.push({
+                tur: "OGC SQL Enjeksiyonu (Injection)",
+                detay: "CQL_FILTER veya FILTER İçinde Şüpheli Komut",
+                log: log,
+                ispat: `İstek parametreleri arasında (Örn: CQL_FILTER) zararlı SQL keyword'leri (DROP, SELECT, UNION vb.) veya kaçış karakterleri (%27 / ') saptanmıştır. Amaç Spatial Veritabanını sömürmektir.`
+            });
+        }
+
+        // 2. Performans ve Altyapı Hataları
+        // Katman Bombardımanı
+        let layerMatch = urlValue.match(/LAYERS=([^&]+)/i) || urlValue.match(/TYPENAMES=([^&]+)/i);
+        if(layerMatch) {
+            let layers = layerMatch[1].split(',');
+            if(layers.length > 10) {
+                performansAnomalileri.push({
+                    tur: "Katman Bombardımanı",
+                    detay: `${layers.length} Katman Aynı Anda Çağrıldı`,
+                    log: log,
+                    ispat: `Tek bir WMS/WFS isteğinde virgülle ayrılarak aynı anda tam <b>${layers.length}</b> katman talep edilmiştir. Bu durum sunucu render motorunu ve CPU'yu felç edebilir.`
+                });
+            }
+        }
+
+        // Max Features İhlali
+        let maxFMatch = urlValue.match(/MAXFEATURES=(\d+)/i) || urlValue.match(/COUNT=(\d+)/i);
+        if(maxFMatch) {
+            let maxF = parseInt(maxFMatch[1]);
+            if(maxF > 50000) {
+                performansAnomalileri.push({
+                    tur: "Maksimum Özellik Sınırı (maxFeatures) İhlali",
+                    detay: `Talep Edilen: ${maxF} Kayıt`,
+                    log: log,
+                    ispat: `İstemci, güvenlik limitlerini bypass etmek için maxFeatures (veya count) değerini ekstrem bir boyuta (<b>${maxF}</b>) çekmiştir. (Out of Memory - OOM riski barındırır).`
+                });
+            }
+        }
+
+        // Ölümcül BBOX (Zehirli İstek)
+        let bboxMatch = urlValue.match(/BBOX=([^&]+)/i);
+        if(bboxMatch) {
+            let coords = bboxMatch[1].split(',').map(Number);
+            if(coords.length === 4) {
+                let dx = Math.abs(coords[2] - coords[0]);
+                let dy = Math.abs(coords[3] - coords[1]);
+                if(dx >= 180 || dy >= 90) { 
+                    performansAnomalileri.push({
+                        tur: "Ölümcül BBOX İstekleri (Zehirli İstek)",
+                        detay: "Devasa Kapsama Alanı",
+                        log: log,
+                        ispat: `İstekteki BBOX parametresi (<b>${bboxMatch[1]}</b>) tek seferde tüm dünyayı/kıtayı kapsayacak kadar büyüktür. Binlerce veriyi aynı anda yükletmek sunucuyu kilitleyebilir.`
+                    });
+                }
+            }
+        }
+
+        // IP Gruplama
+        if(log.ipAdresi && log.ipAdresi !== '-') {
+            if(!ipGruplari[log.ipAdresi]) ipGruplari[log.ipAdresi] = [];
+            ipGruplari[log.ipAdresi].push(log);
+        }
+    });
+
+    // Gruplu IP Analizi (Veri Kazıma ve Hız Anomalisi)
+    for (const [ip, loglar] of Object.entries(ipGruplari)) {
+        if (loglar.length > 50) {
+            let zamanlar = loglar.map(l => l.zaman).filter(z => z && z !== '-').sort();
+            let gercekIlkZaman = zamanlar.length > 0 ? zamanlar[0] : '-';
+            let gercekSonZaman = zamanlar.length > 0 ? zamanlar[zamanlar.length - 1] : '-';
+            
+            guvenlikAnomalileri.push({
+                tur: "Veri Kazıma (Data Scraping) / Sistematik İndirme",
+                detay: `IP: ${ip} | Aşırı İstek (Toplam: ${loglar.length})`,
+                log: loglar[0],
+                ispat: `Aynı IP üzerinden, <b>${gercekIlkZaman}</b> ile <b>${gercekSonZaman}</b> saatleri arasında toplam <b>${loglar.length}</b> OGC isteği atılmıştır. Sürekli değişen BBOX ile harita datasının sistematik olarak indirildiği (kazındığı) kanıtlanmıştır.`
+            });
+        }
+        
+        let oncekiBbox = null;
+        for (let i = 0; i < loglar.length; i++) {
+            let log = loglar[i];
+            let urlKey = Object.keys(log.hamSatir).find(k=>k.toLowerCase().includes('url') || k.toLowerCase().includes('request'));
+            if(urlKey) {
+                let bboxMatch = (log.hamSatir[urlKey] || '').match(/BBOX=([^&]+)/i);
+                if(bboxMatch) {
+                    let coords = bboxMatch[1].split(',').map(Number);
+                    if(coords.length === 4 && oncekiBbox) {
+                        let dx = coords[0] - oncekiBbox[0];
+                        let dy = coords[1] - oncekiBbox[1];
+                        let mesafe = Math.sqrt(dx*dx + dy*dy);
+                        
+                        if (mesafe > 20000) { 
+                            guvenlikAnomalileri.push({
+                                tur: "Hız / Lokasyon Anomalisi (İmkansız Seyahat)",
+                                detay: `Fiziksel BBOX Sıçraması (IP: ${ip})`,
+                                log: log,
+                                ispat: `Aynı IP çok kısa sürede birbiriyle fiziksel bağlantısı olmayan alanlardan işlem yapmıştır.<br>Önceki Konum: [${oncekiBbox.join(', ')}]<br>Yeni Konum: [${coords.join(', ')}]<br>Mesafe Skoru: <b>${mesafe.toFixed(2)}</b>. (Sistemi aldatmaya yönelik IP/VPN/Proxy hilesidir).`
+                            });
+                            break;
+                        }
+                    }
+                    oncekiBbox = coords.length === 4 ? coords : null;
+                }
+            }
+        }
+    }
+
+    const kartRenderFn = (item) => {
+        let urlKey = Object.keys(item.log.hamSatir).find(k=>k.toLowerCase().includes('url') || k.toLowerCase().includes('request'));
+        let url = urlKey ? item.log.hamSatir[urlKey] : '';
+        return `
+        <div class="anomali-kart danger">
+            <div class="anomali-baslik">
+                <span><i class="fa-solid fa-triangle-exclamation"></i> ${item.tur}</span> 
+                <span class="anomali-detay">${item.log.zaman}</span>
+            </div>
+            <div class="anomali-detay" style="margin-bottom:8px; font-weight:500; color:var(--text-light);">${item.detay}</div>
+            <div class="anomali-detay" style="font-size:0.8rem; opacity:0.8; word-break:break-all; background:rgba(0,0,0,0.1); padding:5px; border-radius:4px;">URL: ${url}</div>
+            <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-left: 3px solid var(--warning); font-size: 0.85rem;">
+                <strong><i class="fa-solid fa-microscope"></i> Tespit Kanıtı (İspat):</strong><br>
+                ${item.ispat}
+            </div>
+        </div>
+        `;
+    };
+
+    sonuclariEkranaCiz('listeGuvenlik', guvenlikAnomalileri.slice(0, 100), kartRenderFn);
+    sonuclariEkranaCiz('listePerformans', performansAnomalileri.slice(0, 100), kartRenderFn);
+    sonuclariEkranaCiz('listeMantiksal', mantiksalAnomaliler.slice(0, 100), kartRenderFn);
+}
+
+function sonuclariEkranaCiz(hedefId, dataList, renderFn) {
+    const hedef = document.getElementById(hedefId);
+    if(!hedef) return;
+    if(dataList.length === 0) {
+        hedef.innerHTML = '<div class="empty-state"><i class="fa-solid fa-check" style="color:var(--primary); font-size:2rem; margin-bottom:10px;"></i><br>Bu kritere uyan anomali bulunamadı.</div>';
+    } else {
+        hedef.innerHTML = dataList.map(renderFn).join('');
+    }
 }

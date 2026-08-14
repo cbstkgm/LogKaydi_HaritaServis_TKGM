@@ -32,6 +32,9 @@
                 <button id="analizEtButonu" class="btn btn-primary" disabled>
                     <i class="fa-solid fa-gears"></i> Analiz Et
                 </button>
+                <button id="anomaliAcButonu" class="btn btn-warning" style="background: rgba(243, 156, 18, 0.2); border-color: #f39c12; color: #f39c12;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Anomali Tespit
+                </button>
                 <button id="sqlGosterButonu" class="btn btn-outline">
                     <i class="fa-solid fa-database"></i> SQL Göster
                 </button>
@@ -56,9 +59,35 @@
                         <span id="wmsSayac" class="stat-badge wms">WMS: 0</span>
                         <span id="wfsSayac" class="stat-badge wfs">WFS: 0</span>
                     </div>
-                    <div class="search-box">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="aramaKutusu" placeholder="Tabloda filtrele...">
+                    <div class="search-box-wrapper" style="display:flex; gap:10px; align-items:stretch;">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="aramaKutusu" placeholder="Tabloda filtrele..." style="height: 100%; box-sizing: border-box;">
+                        </div>
+                        <button id="btnGelismisFiltreAcKapa" class="btn btn-outline" title="Gelişmiş Filtreler" style="padding: 0 16px; margin: 0; box-sizing: border-box;">
+                            <i class="fa-solid fa-filter"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="gelismisFiltrePaneli" class="advanced-filters-panel hidden">
+                    <div id="aktifFiltrelerKutusu" class="active-filters empty">
+                    </div>
+
+                    <div class="filter-controls">
+                        <select id="filtreKolonSecici" class="filter-select">
+                            <option value="kayit">Kayıt Sayısı (Aralık)</option>
+                            <option value="tarih">Tarih / Zaman (Aralık)</option>
+                            <option value="durum">HTTP Durumu (Aralık)</option>
+                            <option value="ipadresi">IP Adresi (İçerir)</option>
+                        </select>
+
+                        <!-- Dinamik Input Alanları -->
+                        <div id="filterInputContainer" class="filter-inputs">
+                            <!-- JS Tarafından doldurulacak -->
+                        </div>
+
+                        <button id="btnFiltreyiEkle" class="btn btn-primary btn-small"><i class="fa-solid fa-plus"></i> Ekle</button>
                     </div>
                 </div>
 
@@ -170,6 +199,34 @@ from infos i where i.username = 'cvpm_parsel' and i.service_type = 'GETFEATURE' 
         <i class="fa-solid fa-circle-notch fa-spin fa-3x" style="color: var(--primary); margin-bottom: 15px;"></i>
         <h2 style="color: white; font-weight: 500;">İşlem Yapılıyor...</h2>
         <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Lütfen bekleyiniz, büyük veriler işlenirken arayüz kısa süreliğine yanıt vermeyebilir.</p>
+    </div>
+
+    <!-- Anomali Tespit Modalı -->
+    <div id="anomaliModal" class="modal">
+        <div class="modal-content glass-panel anomali-modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-triangle-exclamation" style="color: #f39c12;"></i> Anomali Tespit Sonuçları</h3>
+                <button class="close-btn" id="anomaliKapatButonu">&times;</button>
+            </div>
+            <div class="modal-body anomali-modal-body">
+                <div class="anomali-tabs">
+                    <button class="tab-btn active" data-tab="tab-guvenlik"><i class="fa-solid fa-shield-halved"></i> 1. Veri Güvenliği ve Suistimal</button>
+                    <button class="tab-btn" data-tab="tab-performans"><i class="fa-solid fa-server"></i> 2. Performans ve Altyapı</button>
+                    <button class="tab-btn" data-tab="tab-mantiksal"><i class="fa-solid fa-code"></i> 3. Mantıksal Hatalar</button>
+                </div>
+                <div class="tab-content active" id="tab-guvenlik">
+                    <div class="anomali-liste" id="listeGuvenlik">
+                        <div class="empty-state"><p>Tespiti çalıştırmak için butona basınız.</p></div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-performans">
+                    <div class="anomali-liste" id="listePerformans"></div>
+                </div>
+                <div class="tab-content" id="tab-mantiksal">
+                    <div class="anomali-liste" id="listeMantiksal"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="data.js"></script>
