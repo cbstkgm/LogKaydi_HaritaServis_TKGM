@@ -21,6 +21,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/wicket/1.3.8/wicket.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="tour.css">
 </head>
 
 <body>
@@ -32,6 +33,9 @@
                 <h1>TKGM Harita Servisleri <span>Log Analizörü</span></h1>
             </div>
             <div class="header-actions">
+                <button id="startTourBtn" class="btn btn-outline" title="Rehberi Başlat">
+                    <i class="fa-solid fa-circle-question"></i>
+                </button>
                 <label for="logDosyasiInput" class="btn btn-outline" style="cursor: pointer; margin-bottom: 0;">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
                     <span id="logDosyaAdiGosterge">Log Dosyası Seçin (.csv)</span>
@@ -282,6 +286,7 @@
     </div>
 
     <script src="data.js"></script>
+    <script src="tour.js"></script>
     <script src="app.js"></script>
 </body>
 

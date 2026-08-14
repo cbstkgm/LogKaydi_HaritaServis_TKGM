@@ -1409,3 +1409,68 @@ function sonuclariEkranaCiz(hedefId, dataList, renderFn) {
         hedef.innerHTML = dataList.map(renderFn).join('');
     }
 }
+
+// --- PRODUCT TOUR (ONBOARDING) ENTEGRASYONU ---
+const tourSteps = [
+    {
+        selector: '.header-title',
+        title: 'Hoş Geldiniz!',
+        description: 'TKGM Harita Servisleri Log Analizörüne hoş geldiniz. Bu kısa rehber size uygulamanın nasıl kullanılacağını gösterecektir.'
+    },
+    {
+        selector: 'label[for="logDosyasiInput"]',
+        title: '1. Dosya Yükleme',
+        description: 'Log analizine başlamak için öncelikle WFS veya diğer servis loglarını içeren CSV dosyanızı buradaki bulut ikonuna tıklayarak seçmelisiniz.'
+    },
+    {
+        selector: '#analizEtButonu',
+        title: '2. Analizi Başlat',
+        description: 'Dosyanızı seçtikten sonra, yüzbinlerce satır veriyi saniyeler içinde analiz etmek ve anomali taramasını başlatmak için bu butona tıklayın.'
+    },
+    {
+        selector: '#anomaliAcButonu',
+        title: '3. Anomali Tespiti',
+        description: 'Log analizi bittikten sonra sistemde güvenlik, performans veya mantıksal bir ihlal tespit edilirse anomali raporunu (yapay zeka algoritmalarıyla incelenmiş halini) buradan görüntüleyebilirsiniz.'
+    },
+    {
+        selector: '.search-box',
+        title: '4. Hızlı Arama',
+        description: 'Tabloda listelenen binlerce log içerisinde herhangi bir kelimeyi, IP adresini veya servis adını buradan hızlıca arayabilirsiniz.'
+    },
+    {
+        selector: '#btnGelismisFiltreAcKapa',
+        title: '5. Gelişmiş Filtreler',
+        description: "Sadece belirli bir zaman aralığındaki, spesifik bir HTTP durum koduna sahip (örn: 404) veya birden fazla ID'ye sahip logları incelemek için bu detaylı menüyü kullanabilirsiniz."
+    },
+    {
+        selector: 'table',
+        title: '6. Sonuç Tablosu',
+        description: "Tüm loglarınız bu tabloda listelenir. (Henüz bir dosya yüklemediyseniz tablo şu an gizli veya boş olabilir). Tablo başlıklarına tıklayarak sıralama yapabilir, log satırının üzerine tıklayarak tüm (SQL, vb.) detaylarını görebilirsiniz."
+    }
+];
+
+let appTour = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Sınıfın instance'ını oluştur
+    if (typeof ProductTour !== 'undefined') {
+        appTour = new ProductTour(tourSteps);
+
+        // Header'daki Rehber butonuna tıklandığında manuel başlat
+        const startTourBtn = document.getElementById('startTourBtn');
+        if (startTourBtn) {
+            startTourBtn.addEventListener('click', () => {
+                appTour.start();
+            });
+        }
+
+        // LocalStorage kontrolü ile otomatik başlatma (Sadece 1 kere)
+        const isTourCompleted = localStorage.getItem('tourCompleted');
+        if (!isTourCompleted) {
+            // Biraz gecikmeli başlatalım ki sayfa tam yüklensin
+            setTimeout(() => {
+                appTour.start();
+            }, 500);
+        }
+    }
+});

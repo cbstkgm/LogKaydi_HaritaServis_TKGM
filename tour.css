@@ -1,0 +1,130 @@
+/* tour.css - Product Tour Stilleri */
+
+:root {
+    --tour-backdrop-color: rgba(0, 0, 0, 0.75);
+    --tour-tooltip-bg: var(--surface); /* Dark mod entegrasyonu için var(--surface) kullanımı */
+    --tour-tooltip-text: var(--text-primary);
+    --tour-primary: var(--primary);
+    --tour-border-radius: 8px;
+    --tour-transition-speed: 0.35s;
+}
+
+/* Tüm body'nin tıklanmasını engelleyen arka plan kalkanı */
+.tour-backdrop-shield {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 999998;
+    pointer-events: auto; /* Tüm tıklamaları engelle */
+    display: none;
+}
+.tour-backdrop-shield.active {
+    display: block;
+}
+
+/* Spotlight element - Karanlık perde ve aydınlık odak noktası */
+.tour-spotlight {
+    position: fixed;
+    border-radius: 6px;
+    background: transparent;
+    /* Devasa bir gölge ile etrafı karartıyoruz */
+    box-shadow: 0 0 0 9999px var(--tour-backdrop-color), 0 0 15px rgba(255, 255, 255, 0.1);
+    z-index: 999999;
+    pointer-events: none; /* Spotlightın içinin tıklanabilmesi için veya shield ile engelleme yaparız */
+    transition: all var(--tour-transition-speed) ease-in-out;
+    display: none;
+}
+.tour-spotlight.active {
+    display: block;
+}
+
+/* Hedef Element'e verilecek z-index yükseltici */
+.tour-highlighted-element {
+    position: relative !important;
+    z-index: 1000000 !important;
+    pointer-events: none !important; /* Etkileşimi kapattık, tura odaklanılsın */
+}
+
+/* Tooltip Baloncuğu */
+.tour-tooltip {
+    position: fixed;
+    background: var(--tour-tooltip-bg, #ffffff);
+    color: var(--tour-tooltip-text, #333333);
+    width: 320px;
+    border-radius: var(--tour-border-radius);
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    z-index: 1000001;
+    transition: all var(--tour-transition-speed) ease-in-out, opacity 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    opacity: 0;
+    visibility: hidden;
+    /* Karanlık/Aydınlık mod border */
+    border: 1px solid var(--border-color);
+}
+.tour-tooltip.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tour-tooltip-header {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--tour-primary);
+}
+
+.tour-tooltip-body {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0;
+    color: var(--tour-tooltip-text);
+}
+
+.tour-tooltip-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.tour-steps-indicator {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.tour-btn-group {
+    display: flex;
+    gap: 8px;
+}
+
+.tour-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-weight: 500;
+}
+
+.tour-btn-prev, .tour-btn-close {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+.tour-btn-prev:hover, .tour-btn-close:hover {
+    background: rgba(100,100,100,0.1);
+}
+
+.tour-btn-next {
+    background: var(--tour-primary);
+    color: white;
+}
+.tour-btn-next:hover {
+    filter: brightness(1.1);
+}
