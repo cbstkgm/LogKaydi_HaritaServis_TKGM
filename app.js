@@ -1299,10 +1299,48 @@ function haritayiCiz(veriler) {
 
     // --- PAGINATION MANTIĞI ---
     let currentPage = 1;
-    const itemsPerPage = 50;
-    const totalPages = Math.ceil(veriler.length / itemsPerPage);
+    let itemsPerPage = 50;
+    let isShowAll = false;
+    let totalPages = Math.ceil(veriler.length / itemsPerPage);
+
+    if (listeDiv) {
+        listeDiv.innerHTML = `
+            <div style="position: sticky; top: -10px; margin: -10px -10px 0 -10px; padding: 10px 10px 5px 10px; z-index: 1000; background: #ebebeb; box-shadow: 0 4px 6px -4px rgba(0,0,0,0.1);">
+                <div style="background: var(--glass-bg); padding: 10px; border-radius: 4px; margin-bottom: 10px; font-weight: bold; color: var(--warning); text-align: center; border: 1px solid var(--glass-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    Toplam <span style="font-size: 1.2rem; color: var(--danger);">${veriler.length}</span> Adet<br>
+                    <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-secondary);">Konumsal (INTERSECTS) Sorgu</span>
+                    
+                    <div style="margin-top: 8px; font-size: 0.85rem; background: rgba(0,0,0,0.05); padding: 6px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.05);">
+                        <label style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; width: 100%;">
+                            <input type="checkbox" id="chkTumunuGoster" style="accent-color: var(--warning); transform: scale(1.1);">
+                            <span style="color: var(--text-primary);">Tümünü Göster (Paginatörü İptal Et)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="paginatorKapsayici" style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 15px; background: var(--glass-bg); padding: 8px; border-radius: 4px; border: 1px solid var(--glass-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <button id="btnKonumsalGeri" class="btn btn-outline" style="padding: 4px 10px;"><i class="fa-solid fa-chevron-left"></i> Geri</button>
+                    <span id="txtSayfaBilgisi" style="font-size: 0.85rem; color: var(--text-primary); font-weight: bold;"></span>
+                    <button id="btnKonumsalIleri" class="btn btn-outline" style="padding: 4px 10px;">İleri <i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+            <div id="konumsalListeIcerik"></div>
+        `;
+
+        document.getElementById('chkTumunuGoster').addEventListener('change', (e) => {
+            isShowAll = e.target.checked;
+            document.getElementById('paginatorKapsayici').style.display = isShowAll ? 'none' : 'flex';
+            renderPage(1);
+        });
+
+        document.getElementById('btnKonumsalGeri').addEventListener('click', () => renderPage(currentPage - 1));
+        document.getElementById('btnKonumsalIleri').addEventListener('click', () => renderPage(currentPage + 1));
+    }
 
     function renderPage(pageNo) {
+        itemsPerPage = isShowAll ? (veriler.length > 0 ? veriler.length : 1) : 50;
+        totalPages = Math.ceil(veriler.length / itemsPerPage) || 1;
+        
         if (pageNo < 1) pageNo = 1;
         if (pageNo > totalPages) pageNo = totalPages;
         currentPage = pageNo;
@@ -1312,28 +1350,36 @@ function haritayiCiz(veriler) {
         }
 
         if (listeDiv) {
-            listeDiv.innerHTML = `
-                <div style="background: var(--glass-bg); padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; color: var(--warning); text-align: center; border: 1px solid var(--glass-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    Toplam <span style="font-size: 1.2rem; color: var(--danger);">${veriler.length}</span> Adet<br>
-                    <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-secondary);">Konumsal (INTERSECTS) Sorgu</span>
-                </div>
+            let btnGeri = document.getElementById('btnKonumsalGeri');
+            let btnIleri = document.getElementById('btnKonumsalIleri');
+            let txtSayfa = document.getElementById('txtSayfaBilgisi');
+            
+            if (btnGeri && btnIleri && txtSayfa) {
+                txtSayfa.textContent = `Sayfa ${currentPage} / ${totalPages}`;
                 
-                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 15px; background: var(--glass-bg); padding: 8px; border-radius: 4px; border: 1px solid var(--glass-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <button id="btnKonumsalGeri" class="btn btn-outline" style="padding: 4px 10px; ${currentPage === 1 ? 'opacity:0.5; pointer-events:none;' : ''}"><i class="fa-solid fa-chevron-left"></i> Geri</button>
-                    <span style="font-size: 0.85rem; color: var(--text-primary); font-weight: bold;">Sayfa ${currentPage} / ${totalPages}</span>
-                    <button id="btnKonumsalIleri" class="btn btn-outline" style="padding: 4px 10px; ${currentPage === totalPages ? 'opacity:0.5; pointer-events:none;' : ''}">İleri <i class="fa-solid fa-chevron-right"></i></button>
-                </div>
-                <div id="konumsalListeIcerik"></div>
-            `;
+                if (currentPage === 1) {
+                    btnGeri.style.opacity = '0.5';
+                    btnGeri.style.pointerEvents = 'none';
+                } else {
+                    btnGeri.style.opacity = '1';
+                    btnGeri.style.pointerEvents = 'auto';
+                }
 
-            document.getElementById('btnKonumsalGeri').addEventListener('click', () => renderPage(currentPage - 1));
-            document.getElementById('btnKonumsalIleri').addEventListener('click', () => renderPage(currentPage + 1));
+                if (currentPage === totalPages) {
+                    btnIleri.style.opacity = '0.5';
+                    btnIleri.style.pointerEvents = 'none';
+                } else {
+                    btnIleri.style.opacity = '1';
+                    btnIleri.style.pointerEvents = 'auto';
+                }
+            }
         }
 
         let sliceStart = (currentPage - 1) * itemsPerPage;
         let sliceEnd = currentPage * itemsPerPage;
         let aktifVeriler = veriler.slice(sliceStart, sliceEnd);
         let icerikDiv = document.getElementById('konumsalListeIcerik');
+        if (icerikDiv) icerikDiv.innerHTML = '';
 
         aktifVeriler.forEach(veri => {
             let isValid = false;
