@@ -98,7 +98,8 @@ analizEtButonu.addEventListener('click', () => {
 
 function veriyiAnalizEt(veri) {
     cozumlenmisLoglar = [];
-    let wmsSayisi = 0; let wfsSayisi = 0;
+    let wmsSayisi = 0, wfsSayisi = 0;
+    let wmsObje = 0, wfsObje = 0, toplamObje = 0;
     let urlKolonu = null, durumKolonu = null, xmlKolonu = null, zamanKolonu = null, logIdKolonu = null, ipKolonu = null, reqBodyKolonu = null;
     
     // Adım 1: Kolon tespiti (ilk 20 satır - İÇERİK bazlı kesin tespit)
@@ -199,14 +200,22 @@ function veriyiAnalizEt(veri) {
                 }
             }
             cozumlenmisLoglar.push(logKaydi);
-            if (logKaydi.servis === 'WMS') wmsSayisi++;
-            if (logKaydi.servis === 'WFS') wfsSayisi++;
+            
+            let oSayi = parseInt(logKaydi.objeSayisi);
+            if (!isNaN(oSayi)) {
+                toplamObje += oSayi;
+                if (logKaydi.servis === 'WMS') { wmsSayisi++; wmsObje += oSayi; }
+                else if (logKaydi.servis === 'WFS') { wfsSayisi++; wfsObje += oSayi; }
+            } else {
+                if (logKaydi.servis === 'WMS') wmsSayisi++;
+                else if (logKaydi.servis === 'WFS') wfsSayisi++;
+            }
         }
     });
 
-    document.getElementById('toplamSayac').textContent = `Toplam: ${cozumlenmisLoglar.length}`;
-    document.getElementById('wmsSayac').textContent = `WMS: ${wmsSayisi}`;
-    document.getElementById('wfsSayac').textContent = `WFS: ${wfsSayisi}`;
+    document.getElementById('toplamSayac').innerHTML = `Toplam: ${cozumlenmisLoglar.length.toLocaleString('tr-TR')} satır <span style="font-size:0.85em; opacity:0.8;">/ ${toplamObje.toLocaleString('tr-TR')} feature</span>`;
+    document.getElementById('wmsSayac').innerHTML = `WMS: ${wmsSayisi.toLocaleString('tr-TR')} satır <span style="font-size:0.85em; opacity:0.8;">/ ${wmsObje.toLocaleString('tr-TR')} feature</span>`;
+    document.getElementById('wfsSayac').innerHTML = `WFS: ${wfsSayisi.toLocaleString('tr-TR')} satır <span style="font-size:0.85em; opacity:0.8;">/ ${wfsObje.toLocaleString('tr-TR')} feature</span>`;
 
     if (cozumlenmisLoglar.length > 0) {
         tabloyuCiz(cozumlenmisLoglar);
