@@ -786,11 +786,13 @@ tbody td {
     color: #dc2626;
 }
 
-/* Anomali Tespit Stilleri */
 .anomali-modal-content {
     width: 80% !important;
     max-width: 1400px !important;
-    height: 85vh;
+    height: 85vh !important;
+    max-height: 85vh !important;
+    border-radius: var(--radius-lg, 8px) !important;
+    margin: auto !important;
     display: flex;
     flex-direction: column;
 }

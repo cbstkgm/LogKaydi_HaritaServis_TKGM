@@ -1040,6 +1040,9 @@ function anomaliAnaliziYap() {
     const kartRenderFn = (item) => {
         let urlKey = Object.keys(item.log.hamSatir).find(k=>k.toLowerCase().includes('url') || k.toLowerCase().includes('request'));
         let url = urlKey ? item.log.hamSatir[urlKey] : '';
+        url = url.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        let hamSatirJson = JSON.stringify(item.log.hamSatir, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        let logId = 'log_' + Math.random().toString(36).substr(2, 9);
         return `
         <div class="anomali-kart danger">
             <div class="anomali-baslik">
@@ -1052,9 +1055,16 @@ function anomaliAnaliziYap() {
                 <strong><i class="fa-solid fa-microscope"></i> Tespit Kanıtı (İspat):</strong><br>
                 ${item.ispat}
             </div>
+            <button onclick="document.getElementById('${logId}').style.display = document.getElementById('${logId}').style.display === 'none' ? 'block' : 'none'" style="margin-top:10px; background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; transition: background 0.3s;" onmouseover="this.style.background='var(--primary-dark)'" onmouseout="this.style.background='var(--primary)'">
+                <i class="fa-solid fa-code"></i> İlgili Log Kaydını Göster
+            </button>
+            <div id="${logId}" style="display:none; margin-top:10px; padding:10px; background:rgba(0,0,0,0.3); color:#e0e0e0; border-radius:4px; font-family:monospace; font-size:0.8rem; overflow-x:auto; white-space:pre-wrap; border: 1px solid rgba(255,255,255,0.1);">
+                ${hamSatirJson}
+            </div>
         </div>
         `;
     };
+
 
     sonuclariEkranaCiz('listeGuvenlik', guvenlikAnomalileri.slice(0, 100), kartRenderFn);
     sonuclariEkranaCiz('listePerformans', performansAnomalileri.slice(0, 100), kartRenderFn);
