@@ -214,11 +214,23 @@ function veriyiAnalizEt(veri) {
         const scrollBtns = document.getElementById('kaydirmaButonlari');
         if(scrollBtns) scrollBtns.classList.remove('hidden');
         bildirimGizle();
+        
+        if(document.getElementById('anomaliAcButonu')) {
+            document.getElementById('anomaliAcButonu').disabled = false;
+            document.getElementById('anomaliAcButonu').style.cursor = 'pointer';
+            document.getElementById('anomaliAcButonu').style.opacity = '1';
+        }
     } else {
         bildirimGoster("Geçerli WMS veya WFS isteği (SERVICE=WMS/WFS) bulunamadı.", "warning");
         sonuclarAlani.classList.add('hidden');
         const scrollBtns = document.getElementById('kaydirmaButonlari');
         if(scrollBtns) scrollBtns.classList.add('hidden');
+        
+        if(document.getElementById('anomaliAcButonu')) {
+            document.getElementById('anomaliAcButonu').disabled = true;
+            document.getElementById('anomaliAcButonu').style.cursor = 'not-allowed';
+            document.getElementById('anomaliAcButonu').style.opacity = '0.6';
+        }
     }
 }
 
@@ -447,7 +459,7 @@ aramaKutusu.addEventListener('input', (e) => {
 });
 
 function filtrele(arananKelimeler) {
-    const terim = (arananKelimeler || '').toLowerCase();
+    const terim = (arananKelimeler || '').toString().toLowerCase().trim();
     
     const filtrelenmis = cozumlenmisLoglar.filter(log => {
         // 1. Servis Filtresi
@@ -489,6 +501,12 @@ function filtrele(arananKelimeler) {
     });
     
     tabloyuCiz(filtrelenmis);
+    
+    // Eğer Anomali Analizi modalı/bölümü açıksa konumsal ve diğer anomali sekmelerini de yeni filtreyle güncelle
+    const anomaliModal = document.getElementById('anomaliModal');
+    if (anomaliModal && anomaliModal.style.display === 'block') {
+        anomaliAnaliziYap();
+    }
 }
 
 document.getElementById('siralamaButonu').addEventListener('click', function() {
@@ -908,8 +926,10 @@ anomaliTablari.forEach(tab => {
 });
 
 function anomaliAnaliziYap() {
-    if(!cozumlenmisLoglar || cozumlenmisLoglar.length === 0) {
-        document.querySelectorAll('.anomali-liste').forEach(el => el.innerHTML = '<div class="empty-state"><i class="fa-solid fa-database" style="font-size:2rem;margin-bottom:10px;opacity:0.5;"></i><br>Lütfen önce log dosyası analiz ediniz.</div>');
+    const analizDizisi = (typeof aktifFiltrelenmisLoglar !== 'undefined' && aktifFiltrelenmisLoglar !== null) ? aktifFiltrelenmisLoglar : cozumlenmisLoglar;
+
+    if(!analizDizisi || analizDizisi.length === 0) {
+        document.querySelectorAll('.anomali-liste').forEach(el => el.innerHTML = '<div class="empty-state"><i class="fa-solid fa-database" style="font-size:2rem;margin-bottom:10px;opacity:0.5;"></i><br>Lütfen önce log dosyası analiz ediniz veya filtrenizi gevşetiniz.</div>');
         return;
     }
     
@@ -927,7 +947,7 @@ function anomaliAnaliziYap() {
     // Genişletilmiş WKT çıkartıcı RegExp (+, e, E dahil bilimsel gösterim ve url decode uyumu)
     const wktRegex = /(POINT|POLYGON|MULTIPOLYGON|LINESTRING|MULTILINESTRING|MULTIPOINT)\s*\([0-9.,\s()\-+eE]+\)/i;
 
-    cozumlenmisLoglar.forEach(log => {
+    analizDizisi.forEach(log => {
         let durumInt = parseInt(log.durum);
         let urlKey = Object.keys(log.hamSatir).find(k=>k.toLowerCase().includes('url') || k.toLowerCase().includes('request'));
         let urlValue = urlKey ? (log.hamSatir[urlKey] || '') : '';
