@@ -1279,6 +1279,13 @@ function haritayiCiz(veriler) {
         zoom: 6
     });
 
+    // Sekmeler arası geçişlerde (display:none -> display:block) harita boyutlarının bozulmasını engellemek için Observer ekliyoruz.
+    new ResizeObserver(() => {
+        if (anomaliMapObjesi) {
+            anomaliMapObjesi.invalidateSize();
+        }
+    }).observe(mapDiv);
+
     const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap'
     });
