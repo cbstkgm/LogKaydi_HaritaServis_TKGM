@@ -1541,7 +1541,7 @@ const tourSteps = [
     {
         selector: '.header-title',
         title: 'Hoş Geldiniz!',
-        description: 'TKGM Harita Servisleri Log Analizörüne hoş geldiniz. Bu kısa rehber size uygulamanın nasıl kullanılacağını gösterecektir.'
+        description: 'TKGM Harita Servisleri Log Analizatörüne hoş geldiniz. Bu kısa rehber size uygulamanın nasıl kullanılacağını gösterecektir.'
     },
     {
         selector: 'label[for="logDosyasiInput"]',
