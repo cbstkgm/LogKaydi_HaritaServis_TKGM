@@ -338,6 +338,21 @@ function tabloyuCiz(cizilecekLoglar) {
     });
 }
 
+let aktifServisFiltresi = 'HEPSİ';
+
+document.getElementById('toplamSayac').addEventListener('click', () => {
+    aktifServisFiltresi = 'HEPSİ';
+    filtrele(aramaKutusu.value);
+});
+document.getElementById('wmsSayac').addEventListener('click', () => {
+    aktifServisFiltresi = 'WMS';
+    filtrele(aramaKutusu.value);
+});
+document.getElementById('wfsSayac').addEventListener('click', () => {
+    aktifServisFiltresi = 'WFS';
+    filtrele(aramaKutusu.value);
+});
+
 aramaKutusu.addEventListener('input', (e) => {
     const terim = e.target.value.toLowerCase();
     if (!cozumlenmisLoglar.length) return;
@@ -345,11 +360,18 @@ aramaKutusu.addEventListener('input', (e) => {
 });
 
 function filtrele(arananKelimeler) {
-    const filtrelenmis = cozumlenmisLoglar.filter(log => 
-        log.servis.toLowerCase().includes(arananKelimeler) || log.istekTipi.toLowerCase().includes(arananKelimeler) ||
-        log.hedef.toLowerCase().includes(arananKelimeler) || log.filtre.toLowerCase().includes(arananKelimeler) ||
-        log.durum.toString().toLowerCase().includes(arananKelimeler)
-    );
+    const terim = (arananKelimeler || '').toLowerCase();
+    const filtrelenmis = cozumlenmisLoglar.filter(log => {
+        if (aktifServisFiltresi !== 'HEPSİ' && log.servis !== aktifServisFiltresi) return false;
+        if (!terim) return true;
+
+        const alanlar = [
+            log.id, log.logIdDegeri, log.ipAdresi, log.servis, 
+            log.istekTipi, log.hedef, log.filtre, log.objeSayisi, 
+            log.zaman, log.durum
+        ];
+        return alanlar.some(alan => alan !== null && alan !== undefined && alan.toString().toLowerCase().includes(terim));
+    });
     tabloyuCiz(filtrelenmis);
 }
 
