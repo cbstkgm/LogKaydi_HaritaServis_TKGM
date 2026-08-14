@@ -34,6 +34,17 @@ let cozumlenmisLoglar = [];
 let siralamaYonu = 1;
 let idariBirimler = typeof idariBirimlerData !== 'undefined' ? idariBirimlerData : [];
 
+// Sayfalama (Pagination) Global Değişkenleri
+let aktifFiltrelenmisLoglar = [];
+let mevcutSayfa = 1;
+let sayfaBasinaKayit = 100;
+
+// Seçiciler (Paginator)
+const sayfaBasinaKayitSecici = document.getElementById('sayfaBasinaKayitSecici');
+const btnOncekiSayfa = document.getElementById('btnOncekiSayfa');
+const btnSonrakiSayfa = document.getElementById('btnSonrakiSayfa');
+const sayfalamaBilgisi = document.getElementById('sayfalamaBilgisi');
+
 // Dosya Seçim Dinleyicileri
 logDosyasiInput.addEventListener('change', (e) => {
     const dosyalar = e.target.files;
@@ -136,6 +147,11 @@ function veriyiAnalizEt(veri) {
         }
     }
 
+    let featureCountKolonu = ilkSatirAnahtarlari.find(k => {
+        const ad = k.toLowerCase().replace(/[\s_]/g, '');
+        return ad === 'featurecount' || ad === 'kayitsayisi' || ad === 'objesayisi' || ad === 'count';
+    }) || null;
+
     const islenenLogIdler = new Set();
 
     veri.forEach((satir, indeks) => {
@@ -160,7 +176,13 @@ function veriyiAnalizEt(veri) {
             logKaydi.hamSatir = satir;
             
             logKaydi.objeSayisi = '-';
-            if (logKaydi.xmlYaniti) {
+            
+            // Eğer CSV'de hazır bir Kayıt Sayısı (Feature Count) kolonu varsa onu kullan
+            if (featureCountKolonu && satir[featureCountKolonu] !== undefined && satir[featureCountKolonu] !== null && satir[featureCountKolonu] !== '') {
+                logKaydi.objeSayisi = satir[featureCountKolonu];
+            } 
+            // Yoksa XML üzerinden hesaplamaya çalış
+            else if (logKaydi.xmlYaniti) {
                 if (logKaydi.xmlYaniti.includes('ExceptionReport') || logKaydi.xmlYaniti.includes('ows:Exception')) {
                     logKaydi.objeSayisi = 'Hata';
                 } else {
@@ -264,13 +286,37 @@ function mahalleAdiGetir(refNumarasi) {
 }
 
 function tabloyuCiz(cizilecekLoglar) {
-    tabloGovdesi.innerHTML = '';
-    if (cizilecekLoglar.length === 0) {
-        logTablosu.classList.add('hidden'); bosDurum.classList.remove('hidden'); return;
-    }
-    logTablosu.classList.remove('hidden'); bosDurum.classList.add('hidden');
+    aktifFiltrelenmisLoglar = cizilecekLoglar;
+    mevcutSayfa = 1; // Yeni bir arama veya veri geldiğinde başa dön
+    sayfalayiCiz();
+}
 
-    cizilecekLoglar.forEach(log => {
+function sayfalayiCiz() {
+    tabloGovdesi.innerHTML = '';
+    const toplamKayit = aktifFiltrelenmisLoglar.length;
+    
+    if (toplamKayit === 0) {
+        logTablosu.classList.add('hidden'); 
+        bosDurum.classList.remove('hidden'); 
+        document.getElementById('paginatorAlani').classList.add('hidden');
+        return;
+    }
+    
+    logTablosu.classList.remove('hidden'); 
+    bosDurum.classList.add('hidden');
+    document.getElementById('paginatorAlani').classList.remove('hidden');
+
+    // Sayfalama Kesimi (Slice)
+    const baslangicIndex = (mevcutSayfa - 1) * sayfaBasinaKayit;
+    const bitisIndex = Math.min(baslangicIndex + sayfaBasinaKayit, toplamKayit);
+    const sayfadakiLoglar = aktifFiltrelenmisLoglar.slice(baslangicIndex, bitisIndex);
+
+    // Paginator Arayüzünü Güncelle
+    sayfalamaBilgisi.textContent = `${baslangicIndex + 1} - ${bitisIndex} / ${toplamKayit}`;
+    btnOncekiSayfa.disabled = mevcutSayfa === 1;
+    btnSonrakiSayfa.disabled = bitisIndex >= toplamKayit;
+
+    sayfadakiLoglar.forEach(log => {
         const tr = document.createElement('tr');
         
         const servisRozeti = log.servis === 'WMS' ? 'badge-wms' : (log.servis === 'WFS' ? 'badge-wfs' : '');
@@ -295,8 +341,12 @@ function tabloyuCiz(cizilecekLoglar) {
             const adaEslesme = log.filtre.match(/adano\s*=\s*(\d+)/i);
             const parselEslesme = log.filtre.match(/parselno\s*=\s*(\d+)/i);
             
-            if (adaEslesme && parselEslesme) {
-                const tkgmUrl = `https://parselsorgu.tkgm.gov.tr/#ara/idari/${refNumarasi}/${adaEslesme[1]}/${parselEslesme[1]}`;
+            const adaNo = adaEslesme ? adaEslesme[1] : "";
+            const parselNo = parselEslesme ? parselEslesme[1] : "";
+            
+            // İstekte Ada var ama Parsel yoksa butonu gösterme
+            if (!(adaEslesme && !parselEslesme)) {
+                const tkgmUrl = `https://parselsorgu.tkgm.gov.tr/#ara/idari/${refNumarasi}/${adaNo}/${parselNo}`;
                 parselSorguButonu = `<a href="${tkgmUrl}" target="_blank" class="btn btn-small btn-primary" title="Parsel Sorgu" style="width: 100%; justify-content: center;"><i class="fa-solid fa-map-location-dot"></i> Git</a>`;
             }
 
@@ -379,10 +429,15 @@ document.getElementById('wfsSayac').addEventListener('click', () => {
     filtrele(aramaKutusu.value);
 });
 
+let aramaZamanlayici;
 aramaKutusu.addEventListener('input', (e) => {
     const terim = e.target.value.toLowerCase();
     if (!cozumlenmisLoglar.length) return;
-    filtrele(terim);
+    
+    clearTimeout(aramaZamanlayici);
+    aramaZamanlayici = setTimeout(() => {
+        filtrele(terim);
+    }, 300);
 });
 
 function filtrele(arananKelimeler) {
@@ -402,15 +457,23 @@ function filtrele(arananKelimeler) {
 }
 
 document.getElementById('siralamaButonu').addEventListener('click', function() {
-    siralamaYonu = siralamaYonu === 1 ? -1 : 1;
-    cozumlenmisLoglar.sort((a, b) => {
-        let sayiA = (a.objeSayisi === 'Hata') ? -2 : (a.objeSayisi === '-' ? -1 : parseInt(a.objeSayisi) || 0);
-        let sayiB = (b.objeSayisi === 'Hata') ? -2 : (b.objeSayisi === '-' ? -1 : parseInt(b.objeSayisi) || 0);
-        return (sayiA - sayiB) * siralamaYonu;
-    });
-    filtrele(aramaKutusu.value.toLowerCase());
+    const yukleniyorEkrani = document.getElementById('yukleniyorEkrani');
+    if(yukleniyorEkrani) yukleniyorEkrani.classList.remove('hidden');
+
     const ikon = this.querySelector('i');
-    ikon.className = siralamaYonu === -1 ? 'fa-solid fa-sort-down' : 'fa-solid fa-sort-up';
+
+    setTimeout(() => {
+        siralamaYonu = siralamaYonu === 1 ? -1 : 1;
+        cozumlenmisLoglar.sort((a, b) => {
+            let sayiA = (a.objeSayisi === 'Hata') ? -2 : (a.objeSayisi === '-' ? -1 : parseInt(a.objeSayisi) || 0);
+            let sayiB = (b.objeSayisi === 'Hata') ? -2 : (b.objeSayisi === '-' ? -1 : parseInt(b.objeSayisi) || 0);
+            return (sayiA - sayiB) * siralamaYonu;
+        });
+        filtrele(aramaKutusu.value.toLowerCase());
+        ikon.className = siralamaYonu === -1 ? 'fa-solid fa-sort-down' : 'fa-solid fa-sort-up';
+        
+        if(yukleniyorEkrani) yukleniyorEkrani.classList.add('hidden');
+    }, 50);
 });
 
 window.detayGoster = function(id) {
@@ -537,6 +600,38 @@ document.getElementById('btnScrollTop').addEventListener('click', () => {
 document.getElementById('btnScrollBottom').addEventListener('click', () => {
     tableWrapper.scrollTo({ top: tableWrapper.scrollHeight, behavior: 'smooth' });
 });
+
+// Paginator Olay Dinleyicileri
+if(sayfaBasinaKayitSecici) {
+    sayfaBasinaKayitSecici.addEventListener('change', (e) => {
+        const val = parseInt(e.target.value);
+        sayfaBasinaKayit = isNaN(val) ? 999999 : val;
+        mevcutSayfa = 1;
+        sayfalayiCiz();
+        tableWrapper.scrollTo({ top: 0 });
+    });
+}
+
+if(btnOncekiSayfa) {
+    btnOncekiSayfa.addEventListener('click', () => {
+        if (mevcutSayfa > 1) {
+            mevcutSayfa--;
+            sayfalayiCiz();
+            tableWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+}
+
+if(btnSonrakiSayfa) {
+    btnSonrakiSayfa.addEventListener('click', () => {
+        const maxSayfa = Math.ceil(aktifFiltrelenmisLoglar.length / sayfaBasinaKayit);
+        if (mevcutSayfa < maxSayfa) {
+            mevcutSayfa++;
+            sayfalayiCiz();
+            tableWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+}
 
 window.onclick = (olay) => {
     if (olay.target === detayModal) detayModal.style.display = "none";

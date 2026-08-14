@@ -86,6 +86,27 @@
                     </table>
                 </div>
 
+                <!-- Paginator Alanı -->
+                <div id="paginatorAlani" class="pagination-container hidden">
+                    <div class="page-size-selector">
+                        <span>Sayfa başına kayıt:</span>
+                        <select id="sayfaBasinaKayitSecici">
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="250">250</option>
+                            <option value="500">500</option>
+                            <option value="999999">Tümü</option>
+                        </select>
+                    </div>
+                    <div class="page-info">
+                        <span id="sayfalamaBilgisi">0 - 0 / 0</span>
+                    </div>
+                    <div class="page-buttons">
+                        <button id="btnOncekiSayfa" class="icon-btn" disabled title="Önceki Sayfa"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button id="btnSonrakiSayfa" class="icon-btn" disabled title="Sonraki Sayfa"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+
                 <div id="bosDurum" class="empty-state">
                     <i class="fa-solid fa-inbox"></i>
                     <p>Gösterilecek OGC kaydı bulunamadı veya filtreye uygun sonuç yok.</p>
@@ -142,6 +163,13 @@ from infos i where i.username = 'cvpm_parsel' and i.service_type = 'GETFEATURE' 
                 <pre id="zeminSqlKodu" class="code-block"></pre>
             </div>
         </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="yukleniyorEkrani" class="loading-overlay hidden">
+        <i class="fa-solid fa-circle-notch fa-spin fa-3x" style="color: var(--primary); margin-bottom: 15px;"></i>
+        <h2 style="color: white; font-weight: 500;">İşlem Yapılıyor...</h2>
+        <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">Lütfen bekleyiniz, büyük veriler işlenirken arayüz kısa süreliğine yanıt vermeyebilir.</p>
     </div>
 
     <script src="data.js"></script>
