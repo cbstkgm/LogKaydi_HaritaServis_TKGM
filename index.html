@@ -13,6 +13,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Wicket JS (WKT Parser) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wicket/1.3.8/wicket.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -239,12 +244,10 @@
                 <div class="anomali-tabs">
                     <button class="tab-btn active" data-tab="tab-guvenlik"><i class="fa-solid fa-shield-halved"></i> 1.
                         Veri Güvenliği ve Suistimal</button>
-                    <button class="tab-btn" data-tab="tab-performans"><i class="fa-solid fa-server"></i> 2. Performans
-                        ve Altyapı</button>
-                    <button class="tab-btn" data-tab="tab-mantiksal"><i class="fa-solid fa-code"></i> 3. Mantıksal
-                        Hatalar</button>
-                    <button class="tab-btn" data-tab="tab-istatistik"><i class="fa-solid fa-chart-bar"></i> 4.
-                        İstatistik (Tekrarlanan)</button>
+                    <button class="tab-btn" data-tab="tab-performans"><i class="fa-solid fa-server"></i> 2. Performans ve Altyapı</button>
+                    <button class="tab-btn" data-tab="tab-mantiksal"><i class="fa-solid fa-code"></i> 3. Mantıksal Hatalar</button>
+                    <button class="tab-btn" data-tab="tab-istatistik"><i class="fa-solid fa-chart-bar"></i> 4. İstatistik (Tekrarlanan)</button>
+                    <button class="tab-btn" data-tab="tab-konumsal"><i class="fa-solid fa-map-location-dot"></i> 5. Konumsal Tespit</button>
                 </div>
                 <div class="tab-content active" id="tab-guvenlik">
                     <div class="anomali-liste" id="listeGuvenlik">
@@ -261,6 +264,17 @@
                 </div>
                 <div class="tab-content" id="tab-istatistik">
                     <div class="anomali-liste" id="listeIstatistik"></div>
+                </div>
+                <div class="tab-content konumsal-tab-container" id="tab-konumsal" style="height: 65vh; min-height: 500px;">
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; font-size: 0.9rem; color: #fff; margin-bottom: 10px; border-radius: 4px;">
+                        <i class="fa-solid fa-circle-info text-info"></i> Bu harita, loglardaki <b>INTERSECTS</b> fonksiyonu ile aranan konumsal (WKT) geometrileri görselleştirir. Soldaki listeden bir isteğe tıklayarak haritada o konuma odaklanabilirsiniz.
+                    </div>
+                    <div style="display: flex; flex: 1; gap: 10px; overflow: hidden;">
+                        <div id="konumsalListe" style="flex: 0 0 350px; background: rgba(0,0,0,0.1); border-radius: 6px; overflow-y: auto; padding: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                            <!-- JS ile liste dolacak -->
+                        </div>
+                        <div id="anomaliMap" style="flex: 1; border-radius: 6px; z-index: 1; background: #e5e5e5;"></div>
+                    </div>
                 </div>
             </div>
         </div>
