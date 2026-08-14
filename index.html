@@ -27,7 +27,7 @@
                 <label for="logDosyasiInput" class="btn btn-outline" style="cursor: pointer; margin-bottom: 0;">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
                     <span id="logDosyaAdiGosterge">Log Dosyası Seçin (.csv)</span>
-                    <input type="file" id="logDosyasiInput" accept=".csv" hidden>
+                    <input type="file" id="logDosyasiInput" accept=".csv" multiple hidden>
                 </label>
                 <button id="analizEtButonu" class="btn btn-primary" disabled>
                     <i class="fa-solid fa-gears"></i> Analiz Et
@@ -91,6 +91,12 @@
                     <p>Gösterilecek OGC kaydı bulunamadı veya filtreye uygun sonuç yok.</p>
                 </div>
             </section>
+
+            <!-- Scroll Butonları -->
+            <div id="kaydirmaButonlari" class="scroll-buttons hidden">
+                <button id="btnScrollTop" class="btn btn-primary scroll-btn" title="En Üste Git"><i class="fa-solid fa-arrow-up"></i></button>
+                <button id="btnScrollBottom" class="btn btn-primary scroll-btn" title="En Alta Git"><i class="fa-solid fa-arrow-down"></i></button>
+            </div>
         </main>
     </div>
 

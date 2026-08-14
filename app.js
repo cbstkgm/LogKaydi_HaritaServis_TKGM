@@ -36,9 +36,9 @@ let idariBirimler = typeof idariBirimlerData !== 'undefined' ? idariBirimlerData
 
 // Dosya Seçim Dinleyicileri
 logDosyasiInput.addEventListener('change', (e) => {
-    const dosya = e.target.files[0];
-    if (dosya) {
-        logDosyaAdiGosterge.textContent = dosya.name;
+    const dosyalar = e.target.files;
+    if (dosyalar.length > 0) {
+        logDosyaAdiGosterge.textContent = dosyalar.length === 1 ? dosyalar[0].name : `${dosyalar.length} dosya seçildi`;
         analizEtButonu.disabled = false;
     } else {
         logDosyaAdiGosterge.textContent = 'Log Dosyası Seçin (.csv)';
@@ -46,24 +46,37 @@ logDosyasiInput.addEventListener('change', (e) => {
     }
 });
 
-
-
 // Analiz Et Butonu
 analizEtButonu.addEventListener('click', () => {
-    const dosya = logDosyasiInput.files[0];
-    if (dosya) {
+    const dosyalar = logDosyasiInput.files;
+    if (dosyalar.length > 0) {
         analizEtButonu.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...';
-        Papa.parse(dosya, {
-            header: true,
-            skipEmptyLines: true,
-            complete: (sonuclar) => {
-                veriyiAnalizEt(sonuclar.data);
-                analizEtButonu.innerHTML = '<i class="fa-solid fa-gears"></i> Analiz Et';
-            },
-            error: (hata) => {
-                bildirimGoster("Log CSV okuma hatası: " + hata.message, 'warning');
-                analizEtButonu.innerHTML = '<i class="fa-solid fa-gears"></i> Analiz Et';
-            }
+        
+        let tumVeriler = [];
+        let islenenDosyaSayisi = 0;
+
+        Array.from(dosyalar).forEach(dosya => {
+            Papa.parse(dosya, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (sonuclar) => {
+                    tumVeriler = tumVeriler.concat(sonuclar.data);
+                    islenenDosyaSayisi++;
+                    
+                    if (islenenDosyaSayisi === dosyalar.length) {
+                        veriyiAnalizEt(tumVeriler);
+                        analizEtButonu.innerHTML = '<i class="fa-solid fa-gears"></i> Analiz Et';
+                    }
+                },
+                error: (err) => {
+                    console.error("Dosya okunurken hata:", err);
+                    islenenDosyaSayisi++;
+                    if (islenenDosyaSayisi === dosyalar.length) {
+                        veriyiAnalizEt(tumVeriler);
+                        analizEtButonu.innerHTML = '<i class="fa-solid fa-gears"></i> Analiz Et';
+                    }
+                }
+            });
         });
     }
 });
@@ -123,9 +136,18 @@ function veriyiAnalizEt(veri) {
         }
     }
 
+    const islenenLogIdler = new Set();
+
     veri.forEach((satir, indeks) => {
         const hamUrl = satir[urlKolonu];
         if (!hamUrl) return;
+
+        // Duplicate (Çoklu Yükleme) Kontrolü
+        const logId = logIdKolonu && satir[logIdKolonu] ? satir[logIdKolonu] : null;
+        if (logId && logId !== '-') {
+            if (islenenLogIdler.has(logId)) return; // Bu ID daha önce işlenmiş, atla
+            islenenLogIdler.add(logId);
+        }
 
         const logKaydi = urlCozumle(hamUrl, indeks + 1);
         if (logKaydi.ogcMi) {
@@ -163,10 +185,14 @@ function veriyiAnalizEt(veri) {
     if (cozumlenmisLoglar.length > 0) {
         tabloyuCiz(cozumlenmisLoglar);
         sonuclarAlani.classList.remove('hidden');
+        const scrollBtns = document.getElementById('kaydirmaButonlari');
+        if(scrollBtns) scrollBtns.classList.remove('hidden');
         bildirimGizle();
     } else {
         bildirimGoster("Geçerli WMS veya WFS isteği (SERVICE=WMS/WFS) bulunamadı.", "warning");
         sonuclarAlani.classList.add('hidden');
+        const scrollBtns = document.getElementById('kaydirmaButonlari');
+        if(scrollBtns) scrollBtns.classList.add('hidden');
     }
 }
 
@@ -480,9 +506,37 @@ window.detayGoster = function(id) {
 
 // Modallar
 sqlGosterButonu.onclick = () => sqlModal.style.display = "flex";
-detayKapatButonu.onclick = () => detayModal.style.display = "none";
-sqlKapatButonu.onclick = () => sqlModal.style.display = "none";
-zeminSqlKapatButonu.onclick = () => zeminSqlModal.style.display = "none";
+window.detayKapat = function() {
+    detayModal.style.display = 'none';
+};
+detayKapatButonu.addEventListener('click', detayKapat);
+
+window.sqlKapat = function() {
+    sqlModal.style.display = 'none';
+};
+sqlKapatButonu.addEventListener('click', sqlKapat);
+sqlKopyalaButonu.addEventListener('click', () => {
+    navigator.clipboard.writeText(sqlKodu.textContent);
+    bildirimGoster("SQL kopyalandı!", "success");
+});
+
+window.zeminSqlKapat = function() {
+    zeminSqlModal.style.display = 'none';
+};
+zeminSqlKapatButonu.addEventListener('click', zeminSqlKapat);
+zeminSqlKopyalaButonu.addEventListener('click', () => {
+    navigator.clipboard.writeText(zeminSqlKodu.textContent);
+    bildirimGoster("Zemin SQL kopyalandı!", "success");
+});
+
+// Kaydırma (Scroll) Butonları İşlevleri
+const tableWrapper = document.querySelector('.table-wrapper');
+document.getElementById('btnScrollTop').addEventListener('click', () => {
+    tableWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+});
+document.getElementById('btnScrollBottom').addEventListener('click', () => {
+    tableWrapper.scrollTo({ top: tableWrapper.scrollHeight, behavior: 'smooth' });
+});
 
 window.onclick = (olay) => {
     if (olay.target === detayModal) detayModal.style.display = "none";

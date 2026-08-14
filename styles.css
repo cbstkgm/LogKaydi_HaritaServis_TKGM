@@ -578,3 +578,32 @@ tbody td {
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 .hidden { display: none !important; }
+
+/* Scroll Buttons */
+.scroll-buttons {
+    position: fixed;
+    right: 10px;
+    bottom: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 99;
+}
+
+.scroll-btn {
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+
+.scroll-btn:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+}
