@@ -1254,19 +1254,6 @@ function haritayiCiz(veriler) {
         konumsalKatman = null;
     }
 
-    if (listeDiv) {
-        if (veriler.length > 0) {
-            listeDiv.innerHTML = `
-                <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; color: var(--warning); text-align: center; border: 1px solid rgba(255,255,255,0.1);">
-                    Toplam <span style="font-size: 1.2rem; color: #ef4444;">${veriler.length}</span> Adet<br>
-                    <span style="font-size: 0.8rem; font-weight: normal; color: #ccc;">Konumsal (INTERSECTS) Sorgu</span>
-                </div>
-            `;
-        } else {
-            listeDiv.innerHTML = '';
-        }
-    }
-
     if (veriler.length === 0) {
         mapDiv.innerHTML = '<div class="empty-state" style="padding-top: 50px; color:#666;"><i class="fa-solid fa-map-location-dot" style="font-size:3rem; opacity:0.5; margin-bottom:15px;"></i><br>Loglar içerisinde konumsal bir filtre (INTERSECTS) bulunamadı.</div>';
         if (listeDiv) listeDiv.innerHTML = '<div style="color: #666; text-align: center; margin-top: 20px;">Kayıt yok.</div>';
@@ -1279,7 +1266,6 @@ function haritayiCiz(veriler) {
         zoom: 6
     });
 
-    // Sekmeler arası geçişlerde (display:none -> display:block) harita boyutlarının bozulmasını engellemek için Observer ekliyoruz.
     new ResizeObserver(() => {
         if (anomaliMapObjesi) {
             anomaliMapObjesi.invalidateSize();
@@ -1309,95 +1295,127 @@ function haritayiCiz(veriler) {
     };
 
     L.control.layers(baseMaps).addTo(anomaliMapObjesi);
-
     konumsalKatman = L.featureGroup().addTo(anomaliMapObjesi);
-    let gecerliCizimVar = false;
 
-    veriler.forEach(veri => {
-        let isValid = false;
-        let obj = null;
-        let hataMesaji = "";
-        let gosterilenId = veri.id;
+    // --- PAGINATION MANTIĞI ---
+    let currentPage = 1;
+    const itemsPerPage = 50;
+    const totalPages = Math.ceil(veriler.length / itemsPerPage);
 
-        try {
-            let wkt = new Wkt.Wkt();
-            wkt.read(veri.wkt);
-            
-            // Doğrudan Leaflet objesine (toObject) çevirmek yerine evrensel GeoJSON köprüsü kullanıyoruz.
-            // Bu sayede hem 'reading point' hatası çözülüyor hem de Enlem/Boylam (X, Y) eksen kaymaları Leaflet'in motoruyla otomatik düzeliyor.
-            let geojsonGeom = wkt.toJson();
-            
-            obj = L.geoJSON(geojsonGeom, {
-                style: function (feature) {
-                    return { color: '#ef4444', weight: 3, opacity: 0.9, fillColor: '#ef4444', fillOpacity: 0.3 };
-                },
-                pointToLayer: function (feature, latlng) {
-                    return L.circleMarker(latlng, { radius: 7, fillColor: "#ef4444", color: "#666", weight: 1, opacity: 1, fillOpacity: 0.8 });
-                }
-            });
-            
-            if (gosterilenId.length > 15) gosterilenId = gosterilenId.substring(0, 8) + '..';
-            obj.bindTooltip(`<b>ID:</b> ${gosterilenId}`, { permanent: true, direction: 'center', className: 'map-label' });
-            konumsalKatman.addLayer(obj);
-            gecerliCizimVar = true;
-            isValid = true;
-        } catch (e) {
-            hataMesaji = e.message || "Bilinmeyen Format Hatası";
-            console.error("WKT Parse Hatası:", veri.wkt, e);
-        }
+    function renderPage(pageNo) {
+        if (pageNo < 1) pageNo = 1;
+        if (pageNo > totalPages) pageNo = totalPages;
+        currentPage = pageNo;
 
-        let cardIdStr = `card-${veri.id}`;
-
-        // Haritadaki objeye tıklanınca listedeki elemana kaydır (Scroll)
-        if (isValid && obj) {
-            obj.on('click', function(e) {
-                let listItem = document.getElementById(cardIdStr);
-                if (listItem) {
-                    listItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    let prevBg = listItem.style.background;
-                    listItem.style.background = 'rgba(243, 156, 18, 0.4)';
-                    setTimeout(() => { listItem.style.background = prevBg; }, 1500);
-                }
-            });
+        if (konumsalKatman) {
+            konumsalKatman.clearLayers();
         }
 
         if (listeDiv) {
-            let kisaWkt = veri.wkt.length > 60 ? veri.wkt.substring(0, 60) + '...' : veri.wkt;
-            let listIdStr = veri.id.length > 15 ? veri.id.substring(0, 15) + '..' : veri.id;
-            let div = document.createElement('div');
-            div.id = cardIdStr;
-            
-            if (isValid && obj) {
-                div.style.cssText = "background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; margin-bottom: 8px; border-radius: 4px; cursor: pointer; transition: all 0.2s;";
-                div.innerHTML = `
-                    <div style="font-weight: bold; margin-bottom: 5px; color: var(--warning);"><i class="fa-solid fa-crosshairs"></i> ID: ${listIdStr}</div>
-                    <div style="font-size: 0.75rem; color: #ccc; font-family: monospace; word-break: break-all; margin-bottom: 5px;">${kisaWkt}</div>
-                    <div style="font-size: 0.75rem; color: #888;"><i class="fa-regular fa-clock"></i> Zaman: ${veri.log.zaman || '-'}</div>
-                `;
-                div.onmouseover = () => div.style.background = "rgba(255,255,255,0.1)";
-                div.onmouseout = () => div.style.background = "rgba(255,255,255,0.05)";
-                div.onclick = () => {
-                    if (obj.getBounds) {
-                        anomaliMapObjesi.flyToBounds(obj.getBounds(), { padding: [30, 30], maxZoom: 15 });
-                    } else if (obj.getLatLng) {
-                        anomaliMapObjesi.flyTo(obj.getLatLng(), 15);
-                    }
-                    if(obj.openTooltip) obj.openTooltip();
-                };
-            } else {
-                div.style.cssText = "background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.3); padding: 10px; margin-bottom: 8px; border-radius: 4px;";
-                div.innerHTML = `
-                    <div style="font-weight: bold; margin-bottom: 5px; color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Hatalı WKT (ID: ${listIdStr})</div>
-                    <div style="font-size: 0.75rem; color: #ef4444; word-break: break-all; margin-bottom: 5px;">Ayrıştırılamadı: ${hataMesaji}</div>
-                    <div style="font-size: 0.75rem; color: #7f1d1d; font-family: monospace; word-break: break-all; background: rgba(255,0,0,0.05); padding: 5px; border-radius: 3px;">${kisaWkt}</div>
-                `;
-            }
-            listeDiv.appendChild(div);
-        }
-    });
+            listeDiv.innerHTML = `
+                <div style="background: var(--glass-bg); padding: 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; color: var(--warning); text-align: center; border: 1px solid var(--glass-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    Toplam <span style="font-size: 1.2rem; color: var(--danger);">${veriler.length}</span> Adet<br>
+                    <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-secondary);">Konumsal (INTERSECTS) Sorgu</span>
+                </div>
+                
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 15px; background: var(--glass-bg); padding: 8px; border-radius: 4px; border: 1px solid var(--glass-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <button id="btnKonumsalGeri" class="btn btn-outline" style="padding: 4px 10px; ${currentPage === 1 ? 'opacity:0.5; pointer-events:none;' : ''}"><i class="fa-solid fa-chevron-left"></i> Geri</button>
+                    <span style="font-size: 0.85rem; color: var(--text-primary); font-weight: bold;">Sayfa ${currentPage} / ${totalPages}</span>
+                    <button id="btnKonumsalIleri" class="btn btn-outline" style="padding: 4px 10px; ${currentPage === totalPages ? 'opacity:0.5; pointer-events:none;' : ''}">İleri <i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+                <div id="konumsalListeIcerik"></div>
+            `;
 
-    // Otomatik odaklanmayı (fitBounds) devre dışı bıraktık.
-    // Harita her zaman başlangıç konumu olan Türkiye genelinde [39.0, 35.0] zoom 6 ile açılır.
+            document.getElementById('btnKonumsalGeri').addEventListener('click', () => renderPage(currentPage - 1));
+            document.getElementById('btnKonumsalIleri').addEventListener('click', () => renderPage(currentPage + 1));
+        }
+
+        let sliceStart = (currentPage - 1) * itemsPerPage;
+        let sliceEnd = currentPage * itemsPerPage;
+        let aktifVeriler = veriler.slice(sliceStart, sliceEnd);
+        let icerikDiv = document.getElementById('konumsalListeIcerik');
+
+        aktifVeriler.forEach(veri => {
+            let isValid = false;
+            let obj = null;
+            let hataMesaji = "";
+            let gosterilenId = veri.id;
+
+            try {
+                let wkt = new Wkt.Wkt();
+                wkt.read(veri.wkt);
+                
+                let geojsonGeom = wkt.toJson();
+                
+                obj = L.geoJSON(geojsonGeom, {
+                    style: function () {
+                        return { color: '#ef4444', weight: 3, opacity: 0.9, fillColor: '#ef4444', fillOpacity: 0.3 };
+                    },
+                    pointToLayer: function (feature, latlng) {
+                        return L.circleMarker(latlng, { radius: 7, fillColor: "#ef4444", color: "#666", weight: 1, opacity: 1, fillOpacity: 0.8 });
+                    }
+                });
+                
+                if (gosterilenId.length > 15) gosterilenId = gosterilenId.substring(0, 8) + '..';
+                obj.bindTooltip(`<b>ID:</b> ${gosterilenId}`, { permanent: true, direction: 'center', className: 'map-label' });
+                konumsalKatman.addLayer(obj);
+                isValid = true;
+            } catch (e) {
+                hataMesaji = e.message || "Bilinmeyen Format Hatası";
+                console.error("WKT Parse Hatası:", veri.wkt, e);
+            }
+
+            let cardIdStr = `card-${veri.id}`;
+
+            if (isValid && obj) {
+                obj.on('click', function(e) {
+                    let listItem = document.getElementById(cardIdStr);
+                    if (listItem) {
+                        listItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        let prevBg = listItem.style.background;
+                        listItem.style.background = 'rgba(243, 156, 18, 0.4)';
+                        setTimeout(() => { listItem.style.background = prevBg; }, 1500);
+                    }
+                });
+            }
+
+            if (icerikDiv) {
+                let kisaWkt = veri.wkt.length > 60 ? veri.wkt.substring(0, 60) + '...' : veri.wkt;
+                let listIdStr = veri.id.length > 15 ? veri.id.substring(0, 15) + '..' : veri.id;
+                let div = document.createElement('div');
+                div.id = cardIdStr;
+                
+                if (isValid && obj) {
+                    div.style.cssText = "background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 10px; margin-bottom: 8px; border-radius: 4px; cursor: pointer; transition: all 0.2s;";
+                    div.innerHTML = `
+                        <div style="font-weight: bold; margin-bottom: 5px; color: var(--warning);"><i class="fa-solid fa-crosshairs"></i> ID: ${listIdStr}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace; word-break: break-all; margin-bottom: 5px;">${kisaWkt}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-primary);"><i class="fa-regular fa-clock"></i> Zaman: ${veri.log.zaman || '-'}</div>
+                    `;
+                    div.onmouseover = () => div.style.background = "#fff";
+                    div.onmouseout = () => div.style.background = "var(--glass-bg)";
+                    div.onclick = () => {
+                        if (obj.getBounds) {
+                            anomaliMapObjesi.flyToBounds(obj.getBounds(), { padding: [30, 30], maxZoom: 15 });
+                        } else if (obj.getLatLng) {
+                            anomaliMapObjesi.flyTo(obj.getLatLng(), 15);
+                        }
+                        if(obj.openTooltip) obj.openTooltip();
+                    };
+                } else {
+                    div.style.cssText = "background: rgba(255,0,0,0.1); border: 1px solid rgba(255,0,0,0.3); padding: 10px; margin-bottom: 8px; border-radius: 4px;";
+                    div.innerHTML = `
+                        <div style="font-weight: bold; margin-bottom: 5px; color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Hatalı WKT (ID: ${listIdStr})</div>
+                        <div style="font-size: 0.75rem; color: #ef4444; word-break: break-all; margin-bottom: 5px;">Ayrıştırılamadı: ${hataMesaji}</div>
+                        <div style="font-size: 0.75rem; color: #7f1d1d; font-family: monospace; word-break: break-all; background: rgba(255,0,0,0.05); padding: 5px; border-radius: 3px;">${kisaWkt}</div>
+                    `;
+                }
+                icerikDiv.appendChild(div);
+            }
+        });
+    }
+
+    renderPage(1);
 }
 
 function sonuclariEkranaCiz(hedefId, dataList, renderFn) {
