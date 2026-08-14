@@ -473,6 +473,8 @@ function filtrele(arananKelimeler) {
                 if (f.max && logTarihi > f.max) return false;
             } else if (f.kolon === 'ipadresi') {
                 if (!log.ipAdresi.toLowerCase().includes(f.text)) return false;
+            } else if (f.kolon === 'logid') {
+                if (!f.idListesi.includes(log.logIdDegeri)) return false;
             }
         }
 
@@ -769,6 +771,10 @@ function gelismisFiltreInputlariGuncelle() {
         filterInputContainer.innerHTML = `
             <input type="text" id="gelismisText" placeholder="Örn: 192.168.1.1">
         `;
+    } else if (kolon === 'logid') {
+        filterInputContainer.innerHTML = `
+            <input type="text" id="gelismisText" placeholder="Virgülle veya ID IN (...) şeklinde">
+        `;
     }
 }
 
@@ -793,6 +799,19 @@ if(btnFiltreyiEkle) {
             // Alanları temizle
             document.getElementById('gelismisMin').value = '';
             document.getElementById('gelismisMax').value = '';
+        } else if (kolon === 'logid') {
+            const textInput = document.getElementById('gelismisText').value.trim();
+            if (!textInput) return;
+            
+            // "ID IN ('...', '...')" veya "123, 456" gibi metinlerden sadece id'leri ayıklamak için
+            let temizStr = textInput.replace(/id\s+in/i, '').replace(/[()'"\s]/g, '');
+            let idDizisi = temizStr.split(',').filter(id => id.length > 0);
+            
+            if (idDizisi.length === 0) return;
+            
+            kural.idListesi = idDizisi;
+            kural.label = `Çoklu Log ID (${idDizisi.length} Adet)`;
+            document.getElementById('gelismisText').value = '';
         } else {
             const textInput = document.getElementById('gelismisText').value.trim();
             if (!textInput) return;
@@ -844,8 +863,24 @@ const anomaliTablari = document.querySelectorAll('.anomali-tabs .tab-btn');
 
 if(anomaliAcButonu) {
     anomaliAcButonu.addEventListener('click', () => {
-        anomaliModal.style.display = 'block';
-        anomaliAnaliziYap();
+        const yukleniyorEkrani = document.getElementById('yukleniyorEkrani');
+        const h2 = yukleniyorEkrani ? yukleniyorEkrani.querySelector('h2') : null;
+        let eskiYazi = h2 ? h2.innerText : "İşlem Yapılıyor...";
+        
+        if (yukleniyorEkrani) {
+            if (h2) h2.innerText = "Anomaliler Analiz Ediliyor...";
+            yukleniyorEkrani.classList.remove('hidden');
+        }
+
+        setTimeout(() => {
+            anomaliAnaliziYap();
+            anomaliModal.style.display = 'block';
+            
+            if (yukleniyorEkrani) {
+                yukleniyorEkrani.classList.add('hidden');
+                if (h2) h2.innerText = eskiYazi;
+            }
+        }, 50);
     });
 }
 
@@ -1060,17 +1095,18 @@ function anomaliAnaliziYap() {
 
             istatistikAnomalileri.push({
                 tur: "Tekrarlanan İstek (İstatistik)",
-                detay: `Aynı sorgudan ${loglar.length} adet bulundu.`,
+                detay: `Aynı sorgudan <span style="color: #ef4444; font-weight: bold;">${loglar.length}</span> adet bulundu.`,
                 log: loglar[0],
                 tumLoglar: loglar,
                 count: loglar.length,
-                ispat: `<strong>Sorgulanan Veri / Filtre:</strong> <br><span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px;">${sorguOzet}</span><br><br>Bu sorgu tam <b>${loglar.length}</b> defa tekrarlanmıştır. Bu tekrarlanan istekler sonucunda toplam <b>${toplamKayit.toLocaleString()}</b> adet kayıt (feature_count) sunucudan dönmüştür.`
+                toplamKayit: toplamKayit,
+                ispat: `<strong>Sorgulanan Veri / Filtre:</strong> <br><span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px;">${sorguOzet}</span><br><br>Bu sorgu tam <b style="color: #ef4444;">${loglar.length}</b> defa tekrarlanmıştır. Bu tekrarlanan istekler sonucunda toplam <b style="color: #ef4444;">${toplamKayit.toLocaleString()}</b> adet kayıt (feature_count) sunucudan dönmüştür.`
             });
         }
     }
     
-    // Çok tekrardan aza doğru sıralama
-    istatistikAnomalileri.sort((a, b) => b.count - a.count);
+    // Toplam dönen kayıt (feature_count) sayısına göre çoktan aza doğru sıralama
+    istatistikAnomalileri.sort((a, b) => b.toplamKayit - a.toplamKayit);
 
     const kartRenderFn = (item) => {
         let url = item.log.orjinalUrl || '-';
@@ -1127,7 +1163,37 @@ function anomaliAnaliziYap() {
     sonuclariEkranaCiz('listeGuvenlik', guvenlikAnomalileri.slice(0, 100), kartRenderFn);
     sonuclariEkranaCiz('listePerformans', performansAnomalileri.slice(0, 100), kartRenderFn);
     sonuclariEkranaCiz('listeMantiksal', mantiksalAnomaliler.slice(0, 100), kartRenderFn);
-    sonuclariEkranaCiz('listeIstatistik', istatistikAnomalileri.slice(0, 100), kartRenderFn);
+
+    const hedefIst = document.getElementById('listeIstatistik');
+    if (hedefIst) {
+        if (istatistikAnomalileri.length === 0) {
+            hedefIst.innerHTML = '<div class="empty-state"><i class="fa-solid fa-check" style="color:var(--primary); font-size:2rem; margin-bottom:10px;"></i><br>Bu kritere uyan anomali bulunamadı.</div>';
+        } else {
+            let genelToplamTekrar = 0;
+            let genelToplamKayit = 0;
+            istatistikAnomalileri.forEach(item => {
+                genelToplamTekrar += item.count;
+                genelToplamKayit += item.toplamKayit;
+            });
+
+            let ozetHtml = `
+                <div style="background: rgba(243, 156, 18, 0.1); border: 1px solid #f39c12; border-left: 4px solid #f39c12; padding: 15px; margin-bottom: 20px; border-radius: 6px;">
+                    <h4 style="margin: 0 0 10px 0; color: #f39c12;"><i class="fa-solid fa-chart-pie"></i> Tekrarlanan Sorgular - Genel Özet</h4>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div style="background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 4px; flex: 1; min-width: 200px;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Mükerrer İstek Toplamı</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #ef4444;">${genelToplamTekrar.toLocaleString()}</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 4px; flex: 1; min-width: 200px;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Çekilen Toplam Kayıt (Feature)</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #ef4444;">${genelToplamKayit.toLocaleString()}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            hedefIst.innerHTML = ozetHtml + istatistikAnomalileri.slice(0, 100).map(kartRenderFn).join('');
+        }
+    }
 }
 
 function sonuclariEkranaCiz(hedefId, dataList, renderFn) {
