@@ -1357,7 +1357,7 @@ function haritayiCiz(veriler) {
                 });
                 
                 if (gosterilenId.length > 15) gosterilenId = gosterilenId.substring(0, 8) + '..';
-                obj.bindTooltip(`<b>ID:</b> ${gosterilenId}`, { permanent: true, direction: 'center', className: 'map-label' });
+                obj.bindTooltip(`<b>ID:</b> ${gosterilenId}`, { permanent: true, direction: 'center', className: 'map-label', interactive: true });
                 konumsalKatman.addLayer(obj);
                 isValid = true;
             } catch (e) {

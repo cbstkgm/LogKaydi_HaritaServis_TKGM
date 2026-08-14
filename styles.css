@@ -881,6 +881,14 @@ tbody td {
     color: #333;
     padding: 2px 6px;
     white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.map-label:hover {
+    z-index: 1000 !important;
+    transform: scale(1.05);
+    background: #fff;
+    cursor: pointer;
 }
 
 /* Konumsal Tab Layout Fix */
