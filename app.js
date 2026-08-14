@@ -874,11 +874,13 @@ function anomaliAnaliziYap() {
     let guvenlikAnomalileri = [];
     let performansAnomalileri = [];
     let mantiksalAnomaliler = [];
+    let istatistikAnomalileri = [];
 
     let ipGruplari = {};
+    let sorguTekrarlari = {};
     
     const sqliRegex = /(?:union|select|insert|update|delete|drop|truncate)\s|--|%27/i;
-    const sldExceptionRegex = /(?:RenderException|Projection|EPSG|Axis Order Error|ExceptionReport)/i;
+    const sldExceptionRegex = /(?:RenderException|ProjectionException|Axis Order Error|ExceptionReport|ows:ExceptionText|ServiceException)/i;
 
     cozumlenmisLoglar.forEach(log => {
         let durumInt = parseInt(log.durum);
@@ -991,6 +993,12 @@ function anomaliAnaliziYap() {
             if(!ipGruplari[log.ipAdresi]) ipGruplari[log.ipAdresi] = [];
             ipGruplari[log.ipAdresi].push(log);
         }
+
+        // İstatistik (Tekrarlanan İstekler)
+        if(log.orjinalUrl && log.orjinalUrl !== '-') {
+            if (!sorguTekrarlari[log.orjinalUrl]) sorguTekrarlari[log.orjinalUrl] = [];
+            sorguTekrarlari[log.orjinalUrl].push(log);
+        }
     });
 
     // Gruplu IP Analizi (Veri Kazıma ve Hız Anomalisi)
@@ -1004,6 +1012,7 @@ function anomaliAnaliziYap() {
                 tur: "Veri Kazıma (Data Scraping) / Sistematik İndirme",
                 detay: `IP: ${ip} | Aşırı İstek (Toplam: ${loglar.length})`,
                 log: loglar[0],
+                tumLoglar: loglar,
                 ispat: `Aynı IP üzerinden, <b>${gercekIlkZaman}</b> ile <b>${gercekSonZaman}</b> saatleri arasında toplam <b>${loglar.length}</b> OGC isteği atılmıştır. Sürekli değişen BBOX ile harita datasının sistematik olarak indirildiği (kazındığı) kanıtlanmıştır.`
             });
         }
@@ -1037,12 +1046,57 @@ function anomaliAnaliziYap() {
         }
     }
 
+    // İstatistik (Tekrarlanan Sorgular) Analizi
+    for (const [url, loglar] of Object.entries(sorguTekrarlari)) {
+        if (loglar.length > 2) { 
+            let toplamKayit = 0;
+            loglar.forEach(l => {
+                let sayi = parseInt(l.objeSayisi);
+                if (!isNaN(sayi)) toplamKayit += sayi;
+            });
+
+            let sorguOzet = loglar[0].filtre !== '-' ? loglar[0].filtre : loglar[0].hedef;
+            if (sorguOzet === '-') sorguOzet = loglar[0].orjinalUrl;
+
+            istatistikAnomalileri.push({
+                tur: "Tekrarlanan İstek (İstatistik)",
+                detay: `Aynı sorgudan ${loglar.length} adet bulundu.`,
+                log: loglar[0],
+                tumLoglar: loglar,
+                count: loglar.length,
+                ispat: `<strong>Sorgulanan Veri / Filtre:</strong> <br><span style="font-family: monospace; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px;">${sorguOzet}</span><br><br>Bu sorgu tam <b>${loglar.length}</b> defa tekrarlanmıştır. Bu tekrarlanan istekler sonucunda toplam <b>${toplamKayit.toLocaleString()}</b> adet kayıt (feature_count) sunucudan dönmüştür.`
+            });
+        }
+    }
+    
+    // Çok tekrardan aza doğru sıralama
+    istatistikAnomalileri.sort((a, b) => b.count - a.count);
+
     const kartRenderFn = (item) => {
-        let urlKey = Object.keys(item.log.hamSatir).find(k=>k.toLowerCase().includes('url') || k.toLowerCase().includes('request'));
-        let url = urlKey ? item.log.hamSatir[urlKey] : '';
+        let url = item.log.orjinalUrl || '-';
         url = url.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         let hamSatirJson = JSON.stringify(item.log.hamSatir, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         let logId = 'log_' + Math.random().toString(36).substr(2, 9);
+        
+        let ids = [];
+        if (item.tumLoglar && item.tumLoglar.length > 0) {
+            item.tumLoglar.forEach(l => {
+                let idKey = Object.keys(l.hamSatir).find(k => k.toLowerCase() === 'id' || k.toLowerCase().includes('logid') || k.toLowerCase().includes('log_id'));
+                if (idKey && l.hamSatir[idKey]) ids.push(l.hamSatir[idKey]);
+            });
+        } else {
+            let idKey = Object.keys(item.log.hamSatir).find(k => k.toLowerCase() === 'id' || k.toLowerCase().includes('logid') || k.toLowerCase().includes('log_id'));
+            if (idKey && item.log.hamSatir[idKey]) ids.push(item.log.hamSatir[idKey]);
+        }
+        
+        let idBtnHtml = '';
+        let idDivHtml = '';
+        if (ids.length > 0) {
+            let sqlFormat = `ID IN ('${ids.join("', '")}')`;
+            idBtnHtml = `<button onclick="document.getElementById('ids_${logId}').style.display = document.getElementById('ids_${logId}').style.display === 'none' ? 'block' : 'none'" style="margin-top:10px; background:#475569; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; transition: background 0.3s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#475569'"><i class="fa-solid fa-list"></i> LogID Listesi</button>`;
+            idDivHtml = `<div id="ids_${logId}" style="display:none; margin-top:10px; padding:10px; background:rgba(0,0,0,0.3); color:#34d399; border-radius:4px; font-family:monospace; font-size:0.8rem; overflow-x:auto; white-space:pre-wrap; border: 1px solid rgba(255,255,255,0.1); word-break: break-all;">${sqlFormat}</div>`;
+        }
+
         return `
         <div class="anomali-kart danger">
             <div class="anomali-baslik">
@@ -1055,12 +1109,16 @@ function anomaliAnaliziYap() {
                 <strong><i class="fa-solid fa-microscope"></i> Tespit Kanıtı (İspat):</strong><br>
                 ${item.ispat}
             </div>
-            <button onclick="document.getElementById('${logId}').style.display = document.getElementById('${logId}').style.display === 'none' ? 'block' : 'none'" style="margin-top:10px; background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; transition: background 0.3s;" onmouseover="this.style.background='var(--primary-dark)'" onmouseout="this.style.background='var(--primary)'">
-                <i class="fa-solid fa-code"></i> İlgili Log Kaydını Göster
-            </button>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button onclick="document.getElementById('${logId}').style.display = document.getElementById('${logId}').style.display === 'none' ? 'block' : 'none'" style="margin-top:10px; background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem; transition: background 0.3s;" onmouseover="this.style.background='var(--primary-dark)'" onmouseout="this.style.background='var(--primary)'">
+                    <i class="fa-solid fa-code"></i> İlgili Log Kaydını Göster
+                </button>
+                ${idBtnHtml}
+            </div>
             <div id="${logId}" style="display:none; margin-top:10px; padding:10px; background:rgba(0,0,0,0.3); color:#e0e0e0; border-radius:4px; font-family:monospace; font-size:0.8rem; overflow-x:auto; white-space:pre-wrap; border: 1px solid rgba(255,255,255,0.1);">
                 ${hamSatirJson}
             </div>
+            ${idDivHtml}
         </div>
         `;
     };
@@ -1069,6 +1127,7 @@ function anomaliAnaliziYap() {
     sonuclariEkranaCiz('listeGuvenlik', guvenlikAnomalileri.slice(0, 100), kartRenderFn);
     sonuclariEkranaCiz('listePerformans', performansAnomalileri.slice(0, 100), kartRenderFn);
     sonuclariEkranaCiz('listeMantiksal', mantiksalAnomaliler.slice(0, 100), kartRenderFn);
+    sonuclariEkranaCiz('listeIstatistik', istatistikAnomalileri.slice(0, 100), kartRenderFn);
 }
 
 function sonuclariEkranaCiz(hedefId, dataList, renderFn) {
