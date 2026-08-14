@@ -496,6 +496,10 @@ function filtrele(arananKelimeler) {
                 if (!log.ipAdresi.toLowerCase().includes(f.text)) return false;
             } else if (f.kolon === 'logid') {
                 if (!f.idListesi.includes(log.logIdDegeri)) return false;
+            } else if (f.kolon === 'istek') {
+                const logIstek = (log.istekTipi || '').toLowerCase();
+                const uyanVarMi = f.secilenIstekler.some(secilen => logIstek === secilen.toLowerCase());
+                if (!uyanVarMi) return false;
             }
         }
 
@@ -802,6 +806,26 @@ function gelismisFiltreInputlariGuncelle() {
         filterInputContainer.innerHTML = `
             <input type="text" id="gelismisText" placeholder="Virgülle veya ID IN (...) şeklinde">
         `;
+    } else if (kolon === 'istek') {
+        filterInputContainer.innerHTML = `
+            <select id="gelismisIstekTipi" multiple size="4" style="width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 5px;">
+                <optgroup label="WMS">
+                    <option value="GetCapabilities">GetCapabilities</option>
+                    <option value="GetMap">GetMap</option>
+                    <option value="GetFeatureInfo">GetFeatureInfo</option>
+                    <option value="GetLegendGraphic">GetLegendGraphic</option>
+                    <option value="DescribeLayer">DescribeLayer</option>
+                    <option value="GetStyles">GetStyles</option>
+                </optgroup>
+                <optgroup label="WFS">
+                    <option value="GetCapabilities">GetCapabilities</option>
+                    <option value="DescribeFeatureType">DescribeFeatureType</option>
+                    <option value="GetFeature">GetFeature</option>
+                    <option value="Transaction">Transaction</option>
+                    <option value="LockFeature">LockFeature</option>
+                </optgroup>
+            </select>
+        `;
     }
 }
 
@@ -839,6 +863,15 @@ if(btnFiltreyiEkle) {
             kural.idListesi = idDizisi;
             kural.label = `Çoklu Log ID (${idDizisi.length} Adet)`;
             document.getElementById('gelismisText').value = '';
+        } else if (kolon === 'istek') {
+            const selectEl = document.getElementById('gelismisIstekTipi');
+            if(!selectEl) return;
+            let secilenler = Array.from(selectEl.selectedOptions).map(opt => opt.value);
+            if(secilenler.length === 0) return;
+            
+            kural.secilenIstekler = secilenler;
+            kural.label = `İstek Tipi: ${secilenler.join(', ')}`;
+            Array.from(selectEl.options).forEach(opt => opt.selected = false);
         } else {
             const textInput = document.getElementById('gelismisText').value.trim();
             if (!textInput) return;
